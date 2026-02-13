@@ -1,0 +1,78 @@
+name: Daily News
+
+on:
+  schedule:
+    # 5 AM Central US = 11:00 UTC (CST) or 10:00 UTC (CDT)
+    - cron: '0 11 * * *'
+  workflow_dispatch:
+    inputs:
+      topic:
+        description: 'News topic'
+        required: false
+        default: 'both'
+        type: choice
+        options:
+          - both
+          - ai
+          - cricket
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  generate-news:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Set up Python
+        run: uv python install
+
+      - name: Install dependencies
+        run: uv sync
+
+      - name: Generate news
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          LITELLM_BASE_URL: ${{ secrets.LITELLM_BASE_URL }}
+        run: uv run get-news --topic ${{ github.event.inputs.topic || 'both' }}
+
+      - name: Create PR with news
+        env:
+          GH_TOKEN: ${{ secrets.PAT_TOKEN }}
+        run: |
+          DATE=$(date +%Y-%m-%d)
+          BRANCH="daily-news/${DATE}"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add daily-news/
+          if git diff --staged --quiet; then
+            echo "No news files generated"
+            exit 0
+          fi
+          
+          # Check if branch exists remotely and delete it (for re-runs on same day)
+          if git ls-remote --exit-code --heads origin "$BRANCH" >/dev/null 2>&1; then
+            echo "Branch $BRANCH exists, deleting for re-run..."
+            git push origin --delete "$BRANCH" || true
+          fi
+          
+          git checkout -b "$BRANCH"
+          git commit -m "chore: daily news ${DATE}"
+          git push -u origin "$BRANCH"
+          
+          # Check if PR already exists, if not create one
+          EXISTING_PR=$(gh pr list --head "$BRANCH" --json number --jq '.[0].number')
+          if [ -z "$EXISTING_PR" ]; then
+            gh pr create --base dev --title "chore: daily news ${DATE}" --body "Automated daily news generation for ${DATE}"
+            # Enable auto-merge (will merge once CI passes)
+            gh pr merge --auto --squash --delete-branch
+          else
+            echo "PR #${EXISTING_PR} already exists for this branch"
+          fi
