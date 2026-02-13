@@ -45,9 +45,9 @@ uv run ruff check . && uv run ruff format .
 
 ## GitHub Actions
 
-**Daily news:** Runs at 5 AM Central (11:00 UTC), generates both topics, opens a PR to `main` with auto-merge. Manual trigger via `workflow_dispatch`.
+**Daily news:** Runs at 5 AM Central (11:00 UTC), generates both topics, opens a PR to `dev` with auto-merge. Manual trigger via `workflow_dispatch`.
 
-**CI:** Lint and tests on PRs to `main`.
+**CI:** Lint and tests on PRs to `dev`.
 
 **Secrets:** `OPENAI_API_KEY`, `LITELLM_BASE_URL`, and `PAT_TOKEN` (for PR creation).
 
