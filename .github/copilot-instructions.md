@@ -6,7 +6,7 @@ Python CLI that fetches RSS feeds for AI and Cricket news, summarizes them using
 
 - **Organization:** `anoopk-personal` (GitHub Teams)
 - **Remote:** `https://github.com/anoopk-personal/news-aggregator.git`
-- **Default branch:** `dev`
+- **Default branch:** `main`
 
 ## Tech Stack
 
@@ -67,19 +67,19 @@ news-aggregator/
 
 ## Git Workflow
 
-**Branch protection on `dev`:**
+**Branch protection on `main`:**
 - All changes require PRs (no direct push)
 - Required status check: `lint-and-test`
 - Required approvals: 0 (solo developer)
 
 **Development process:**
 ```bash
-git checkout dev && git pull origin dev
+git checkout main && git pull origin main
 git checkout -b feature/name              # or fix/, docs/, test/, chore/
 # make changes
 git add <files> && git commit -m "feat: description"
 git push -u origin feature/name
-gh pr create --base dev
+gh pr create --base main
 # Auto-merge enables automatically, wait for CI
 ```
 
@@ -92,7 +92,7 @@ gh pr create --base dev
 - `daily-news/` - Automated daily news (reserved for workflow)
 
 **Auto-merge behavior:**
-- PRs to `dev` from feature branches automatically enable auto-merge
+- PRs to `main` from feature branches automatically enable auto-merge
 - Once CI (`lint-and-test`) passes, PR squash-merges automatically
 - Feature branch is deleted automatically after merge (GitHub repo setting)
 
@@ -101,12 +101,12 @@ gh pr create --base dev
 All workflows are at `.github/workflows/`.
 
 ### CI (ci.yml)
-- Triggers on PRs and pushes to `dev`
+- Triggers on PRs and pushes to `main`
 - Runs: `ruff check`, `ruff format --check`, `pytest`
 - Job name `lint-and-test` for branch protection
 
 ### Auto Merge (auto-merge.yml)
-- Triggers on PR events (opened, synchronize, reopened) to `dev`
+- Triggers on PR events (opened, synchronize, reopened) to `main`
 - Excludes `daily-news/` branches (handled by their own workflow)
 - Enables squash merge with `--delete-branch` flag
 - Uses `PAT_TOKEN` for authentication
@@ -114,7 +114,7 @@ All workflows are at `.github/workflows/`.
 ### Daily News (daily-news.yml)
 - Schedule: 5 AM Central (11:00 UTC)
 - Creates branch `daily-news/YYYY-MM-DD`
-- Opens PR to `dev` with auto-merge enabled
+- Opens PR to `main` with auto-merge enabled
 - Once CI passes, PR merges automatically and branch is deleted
 
 ## GitHub Secrets
@@ -136,7 +136,7 @@ All workflows are at `.github/workflows/`.
 - **Actions > Workflow permissions:** Read and write
 - **Pull Requests > Allow auto-merge:** Enabled
 - **Pull Requests > Automatically delete head branches:** Enabled ✅
-- **Branch protection on `dev`:** Require PRs, require `lint-and-test` status
+- **Branch protection on `main`:** Require PRs, require `lint-and-test` status
 
 ## Troubleshooting
 
