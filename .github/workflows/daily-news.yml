@@ -70,7 +70,7 @@ jobs:
           # Check if PR already exists, if not create one
           EXISTING_PR=$(gh pr list --head "$BRANCH" --json number --jq '.[0].number')
           if [ -z "$EXISTING_PR" ]; then
-            gh pr create --base main --title "chore: daily news ${DATE}" --body "Automated daily news generation for ${DATE}"
+            gh pr create --base dev --title "chore: daily news ${DATE}" --body "Automated daily news generation for ${DATE}"
             # Enable auto-merge (will merge once CI passes)
             gh pr merge --auto --squash --delete-branch
           else
