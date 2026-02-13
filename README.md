@@ -54,3 +54,4 @@ uv run ruff check . && uv run ruff format .
 ## Output
 
 Files go to `daily-news/` as `news-MM-DD-YY.md` (duplicates get `(2)`, `(3)`, etc.). Each file has summaries grouped by theme with source attribution.
+
