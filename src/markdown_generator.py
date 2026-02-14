@@ -1,5 +1,6 @@
 """Generate markdown output files."""
 
+import re
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -7,6 +8,12 @@ import bleach
 
 from .config import DANGEROUS_LINK_SCHEMES, OUTPUT_DATE_FORMAT, OUTPUT_FILENAME_PREFIX
 from .utils import EMOJI_PATTERN
+
+# Case-insensitive pattern to neutralize dangerous URL schemes in markdown links
+_DANGEROUS_LINK_RE = re.compile(
+    r"\]\((" + "|".join(re.escape(s) for s in DANGEROUS_LINK_SCHEMES) + r")",
+    re.IGNORECASE,
+)
 
 
 def get_output_path(output_dir: Path, date: datetime | None = None) -> Path:
@@ -43,7 +50,6 @@ def _sanitize_markdown(text: str) -> str:
     sanitized = EMOJI_PATTERN.sub("", text)
     # Strip embedded HTML (XSS vector)
     sanitized = bleach.clean(sanitized, tags=[], strip=True)
-    # Neutralize dangerous URL schemes in markdown links
-    for scheme in DANGEROUS_LINK_SCHEMES:
-        sanitized = sanitized.replace(f"]({scheme}", "](#")
+    # Neutralize dangerous URL schemes in markdown links (case-insensitive)
+    sanitized = _DANGEROUS_LINK_RE.sub("](#", sanitized)
     return sanitized.strip()

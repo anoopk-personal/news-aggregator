@@ -92,6 +92,18 @@ def test_is_valid_url_rejects_relative():
     assert _is_valid_url("/path/to/resource") is False
 
 
+def test_is_valid_url_rejects_localhost():
+    assert _is_valid_url("http://localhost/feed") is False
+
+
+def test_is_valid_url_rejects_private_ip():
+    assert _is_valid_url("http://192.168.1.1/feed") is False
+
+
+def test_is_valid_url_rejects_loopback():
+    assert _is_valid_url("http://127.0.0.1/feed") is False
+
+
 @patch("src.rss_fetcher.httpx.get")
 def test_fetch_feed_success(mock_get):
     """Test successful feed fetching and parsing."""

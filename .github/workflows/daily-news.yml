@@ -41,7 +41,8 @@ jobs:
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           LITELLM_BASE_URL: ${{ secrets.LITELLM_BASE_URL }}
-        run: uv run get-news --topic ${{ github.event.inputs.topic || 'both' }}
+          NEWS_TOPIC: ${{ github.event.inputs.topic || 'both' }}
+        run: uv run get-news --topic "$NEWS_TOPIC"
 
       - name: Create PR with news
         env:

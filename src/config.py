@@ -67,6 +67,8 @@ def get_llm_credentials() -> tuple[str, str]:
         raise SummarizationError("OPENAI_API_KEY not set")
     if not url:
         raise SummarizationError("LITELLM_BASE_URL not set")
+    if not url.startswith("https://"):
+        raise SummarizationError("LITELLM_BASE_URL must use HTTPS")
     return key, url
 
 
