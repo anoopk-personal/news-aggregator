@@ -29,7 +29,7 @@ htmlcov/
 .uv/
 uv.lock
 
-# Output
+# Output (force-added in CI workflow with git add -f)
 daily-news/
 
 # OS
