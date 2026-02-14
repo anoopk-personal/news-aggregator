@@ -14,9 +14,11 @@ Python CLI tool that fetches RSS feeds (AI and Cricket topics), summarizes artic
 ```bash
 make install        # uv sync
 make test           # uv run pytest -v
-make test-cov       # pytest with coverage
+make test-cov       # pytest with coverage (fails under 80%)
 make lint           # ruff check + format check
 make format         # ruff fix + format
+make typecheck      # mypy type checking on src/
+make audit          # pip-audit dependency vulnerability scan
 make run-ai         # fetch AI articles (no LLM, skips summarization)
 make run-cricket    # fetch cricket articles (no LLM, skips summarization)
 make run-both       # fetch all articles (no LLM, skips summarization)
