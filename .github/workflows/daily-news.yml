@@ -26,10 +26,10 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v5
+        uses: astral-sh/setup-uv@e58605a9b6da7c637471fab8847a5e5a6b8df081 # v5
 
       - name: Set up Python
         run: uv python install
@@ -56,17 +56,17 @@ jobs:
             echo "No news files generated"
             exit 0
           fi
-          
+
           # Check if branch exists remotely and delete it (for re-runs on same day)
           if git ls-remote --exit-code --heads origin "$BRANCH" >/dev/null 2>&1; then
             echo "Branch $BRANCH exists, deleting for re-run..."
             git push origin --delete "$BRANCH" || true
           fi
-          
+
           git checkout -b "$BRANCH"
           git commit -m "chore: daily news ${DATE}"
           git push -u origin "$BRANCH"
-          
+
           # Check if PR already exists, if not create one
           EXISTING_PR=$(gh pr list --head "$BRANCH" --json number --jq '.[0].number')
           if [ -z "$EXISTING_PR" ]; then

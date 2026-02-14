@@ -1,5 +1,7 @@
 # News Aggregator
 
+[![CI](https://github.com/anoopk-personal/news-aggregator/actions/workflows/ci.yml/badge.svg)](https://github.com/anoopk-personal/news-aggregator/actions/workflows/ci.yml)
+
 RSS news, summarized by an LLM — you bring your own key.
 
 Pull from multiple feeds per topic, get a clean digest in markdown. Everything is configurable in one place.
