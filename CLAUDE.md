@@ -17,9 +17,9 @@ make test           # uv run pytest -v
 make test-cov       # pytest with coverage
 make lint           # ruff check + format check
 make format         # ruff fix + format
-make run-ai         # uv run get-news --topic ai
-make run-cricket    # uv run get-news --topic cricket
-make run-both       # uv run get-news --topic both
+make run-ai         # fetch AI articles (no LLM, skips summarization)
+make run-cricket    # fetch cricket articles (no LLM, skips summarization)
+make run-both       # fetch all articles (no LLM, skips summarization)
 ```
 
 Run a single test file: `uv run pytest tests/test_rss_fetcher.py -v`
@@ -29,7 +29,7 @@ Run a single test: `uv run pytest tests/test_rss_fetcher.py::test_sanitize_strip
 
 **Data flow:** CLI (`cli.py`) → async RSS fetch (`rss_fetcher.py`) → LLM summarize (`summarizer.py`) → write markdown (`markdown_generator.py`)
 
-- **cli.py** — Click entry point (`get-news` command), orchestrates the pipeline
+- **cli.py** — Click entry point (`get-news` command), orchestrates the pipeline. `--skip-summarize` flag bypasses LLM and uses `_format_articles_as_markdown()` to produce a plain listing
 - **config.py** — All constants centralized here (feeds, timeouts, line limits, LLM model). No magic numbers elsewhere
 - **rss_fetcher.py** — `fetch_all_feeds()` uses `asyncio` + `httpx.AsyncClient` for concurrent fetching. `Article` dataclass holds parsed data. Filters to last 72 hours, max 25 articles/feed
 - **summarizer.py** — OpenAI SDK configured with LiteLLM `base_url`. Topic-specific line limits (AI: 100-200, Cricket: 20-50)
@@ -63,4 +63,4 @@ All PRs require manual review and merge.
 
 ## Environment Variables
 
-Requires `OPENAI_API_KEY` and `LITELLM_BASE_URL` (see `.env.example`). In CI, these plus `PAT_TOKEN` are configured as GitHub secrets.
+`OPENAI_API_KEY` and `LITELLM_BASE_URL` are required for the full summarization pipeline (see `.env.example`). Not needed for `--skip-summarize` local runs. In CI, these plus `PAT_TOKEN` are configured as GitHub secrets.
