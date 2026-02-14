@@ -1,6 +1,7 @@
 """Fetch and parse RSS feeds."""
 
 import asyncio
+import ipaddress
 import logging
 import re
 from dataclasses import dataclass
@@ -39,11 +40,26 @@ class Article:
     published: datetime | None = None
 
 
+def _is_private_host(netloc: str) -> bool:
+    """Check if the netloc is a private/reserved IP or localhost."""
+    hostname = netloc.split(":")[0]  # strip port
+    if hostname.lower() in ("localhost", "localhost.localdomain"):
+        return True
+    try:
+        return ipaddress.ip_address(hostname).is_private
+    except ValueError:
+        return False  # regular domain name, allow it
+
+
 def _is_valid_url(url: str) -> bool:
     """Validate that a URL has an allowed scheme and valid structure."""
     try:
         parsed = urlparse(url)
-        return parsed.scheme in ALLOWED_URL_SCHEMES and bool(parsed.netloc)
+        if parsed.scheme not in ALLOWED_URL_SCHEMES or not parsed.netloc:
+            return False
+        if _is_private_host(parsed.netloc):
+            return False
+        return True
     except (ValueError, AttributeError):
         return False
 
