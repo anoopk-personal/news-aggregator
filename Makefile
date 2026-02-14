@@ -1,4 +1,4 @@
-.PHONY: install test lint format run clean
+.PHONY: install test test-cov lint format typecheck audit run-ai run-cricket run-both clean
 
 install:
 	uv sync
@@ -7,7 +7,7 @@ test:
 	uv run pytest -v
 
 test-cov:
-	uv run pytest --cov=src --cov-report=term-missing
+	uv run pytest --cov=src --cov-report=term-missing --cov-fail-under=80
 
 lint:
 	uv run ruff check .
@@ -16,6 +16,12 @@ lint:
 format:
 	uv run ruff check . --fix
 	uv run ruff format .
+
+typecheck:
+	uv run mypy src/
+
+audit:
+	uv run pip-audit
 
 run-ai:
 	uv run get-news --topic ai --skip-summarize

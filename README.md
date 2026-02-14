@@ -43,6 +43,8 @@ uv run get-news --topic ai --output-dir /path/to/output
 ```bash
 uv run pytest -v
 uv run ruff check . && uv run ruff format .
+uv run mypy src/
+uv run pip-audit
 ```
 
 ## GitHub Actions
