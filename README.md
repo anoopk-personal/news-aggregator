@@ -47,7 +47,7 @@ uv run ruff check . && uv run ruff format .
 
 ## GitHub Actions
 
-**Daily news:** Runs at 5 AM Central (11:00 UTC), generates both topics, opens a PR to `dev` with auto-merge. Manual trigger via `workflow_dispatch`.
+**Daily news:** Runs at 5 AM Central (11:00 UTC), generates both topics, opens a PR to `dev`. Manual trigger via `workflow_dispatch`.
 
 **CI:** Lint and tests on PRs to `dev`.
 

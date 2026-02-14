@@ -4,10 +4,6 @@
 
 If you discover a security vulnerability in this project, please report it by [opening a GitHub issue](https://github.com/anoopk-personal/news-aggregator/issues).
 
-For sensitive issues, email: anoopk.dev@gmail.com
-
-I'll acknowledge receipt within 48 hours and aim to release a fix promptly.
-
 ## Scope
 
 This is a hobby CLI tool. Security-relevant areas include:
