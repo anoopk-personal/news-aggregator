@@ -29,5 +29,8 @@ htmlcov/
 .uv/
 uv.lock
 
+# Output
+daily-news/
+
 # OS
 .DS_Store
