@@ -54,3 +54,12 @@ def test_summarize_articles_no_articles(monkeypatch):
     monkeypatch.setenv("LITELLM_BASE_URL", "https://test.com")
     summary = summarize_articles([], "ai")
     assert summary == "No articles found for ai."
+
+
+def test_summarize_rejects_http_base_url(monkeypatch):
+    """Test that SummarizationError is raised for HTTP (non-HTTPS) base URL."""
+    monkeypatch.setenv("OPENAI_API_KEY", "test_key")
+    monkeypatch.setenv("LITELLM_BASE_URL", "http://insecure.com")
+    articles = [Article(title="Title", link="Link", summary="Summary", source="Source")]
+    with pytest.raises(SummarizationError, match="LITELLM_BASE_URL must use HTTPS"):
+        summarize_articles(articles, "ai")

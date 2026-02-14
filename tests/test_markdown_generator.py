@@ -61,3 +61,20 @@ def test_sanitize_markdown_neutralizes_dangerous_links():
     assert "javascript:" not in result
     assert "data:" not in result
     assert "](#" in result
+
+
+def test_sanitize_markdown_neutralizes_mixed_case_schemes():
+    """Mixed-case dangerous schemes are neutralized (case-insensitive)."""
+    text = "Click [here](JavaScript:alert(1)) or [there](JAVASCRIPT:alert(1))"
+    result = _sanitize_markdown(text)
+    assert "JavaScript:" not in result
+    assert "JAVASCRIPT:" not in result
+    assert "](#" in result
+
+
+def test_sanitize_markdown_neutralizes_vbscript():
+    """vbscript: scheme is neutralized."""
+    text = "Click [here](vbscript:MsgBox)"
+    result = _sanitize_markdown(text)
+    assert "vbscript:" not in result
+    assert "](#" in result
