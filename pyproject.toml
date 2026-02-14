@@ -3,6 +3,8 @@ name = "news-aggregator"
 version = "0.1.0"
 description = "CLI tool to fetch and summarize news from RSS feeds for AI and Cricket topics"
 readme = "README.md"
+license = "MIT"
+authors = [{ name = "Anoop Kumar" }]
 requires-python = ">=3.12"
 dependencies = [
     "feedparser==6.0.11",
@@ -13,6 +15,9 @@ dependencies = [
     "bleach==6.1.0",
     "python-dateutil==2.9.0",
 ]
+
+[project.urls]
+Repository = "https://github.com/anoopk-personal/news-aggregator"
 
 [project.scripts]
 get-news = "src.cli:main"
