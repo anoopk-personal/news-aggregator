@@ -6,7 +6,6 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Python CLI tool that fetches RSS feeds (AI and Cricket topics), summarizes articles using LLM (Gemini 2.5 Pro via LiteLLM proxy), and outputs daily markdown digests. Runs on a daily schedule via GitHub Actions.
 
-- **Org:** `anoopk-personal` (GitHub Teams)
 - **Default branch:** `dev`
 - **Python 3.12**, managed with `uv`
 

@@ -12,8 +12,9 @@ permissions:
 jobs:
   enable-auto-merge:
     runs-on: ubuntu-latest
-    # Only enable auto-merge for feature branches (not daily-news which has its own workflow)
+    # Only enable auto-merge for same-repo feature branches (not forks or daily-news)
     if: |
+      github.event.pull_request.head.repo.full_name == github.repository &&
       github.event.pull_request.base.ref == 'dev' &&
       !startsWith(github.event.pull_request.head.ref, 'daily-news/')
 
