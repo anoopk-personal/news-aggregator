@@ -18,13 +18,13 @@ format:
 	uv run ruff format .
 
 run-ai:
-	uv run get-news --topic ai
+	uv run get-news --topic ai --skip-summarize
 
 run-cricket:
-	uv run get-news --topic cricket
+	uv run get-news --topic cricket --skip-summarize
 
 run-both:
-	uv run get-news --topic both
+	uv run get-news --topic both --skip-summarize
 
 clean:
 	rm -rf __pycache__ .pytest_cache .coverage htmlcov .ruff_cache
