@@ -54,12 +54,12 @@ All changes go through PRs to `dev`. Branch protection requires the `lint-and-te
 
 **Branch prefixes:** `feature/`, `fix/`, `docs/`, `test/`, `chore/`. The `daily-news/` prefix is reserved for the automated workflow.
 
-All PRs require manual review and merge.
+Daily-news PRs auto-merge (squash) once CI passes. Other PRs require manual merge.
 
 ## GitHub Actions
 
 - **ci.yml** — Runs ruff + pytest on PRs/pushes to `dev`. Job name: `lint-and-test`
-- **daily-news.yml** — Scheduled at 11:00 UTC (5 AM Central), creates `daily-news/YYYY-MM-DD` branch, generates news, opens PR
+- **daily-news.yml** — Scheduled at 11:00 UTC (5 AM Central), creates `daily-news/YYYY-MM-DD` branch, generates news, opens PR, and enables auto-merge
 
 ## Environment Variables
 
