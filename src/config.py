@@ -1,13 +1,17 @@
 """Configuration for the news aggregator. Customize topics/sources here."""
 
+import logging
 import os
+import tomllib
 from pathlib import Path
 from typing import Final
 
 from .exceptions import SummarizationError
 
-# --- Topics & sources ---
-FEEDS: Final[dict[str, list[str]]] = {
+logger = logging.getLogger(__name__)
+
+# --- Default topics & sources (used when feeds.toml is absent) ---
+_DEFAULT_FEEDS: Final[dict[str, list[str]]] = {
     "ai": [
         "https://news.mit.edu/rss/topic/artificial-intelligence2",
         "https://bair.berkeley.edu/blog/feed.xml",
@@ -35,10 +39,45 @@ FEEDS: Final[dict[str, list[str]]] = {
     ],
 }
 
-TOPIC_LINE_LIMITS: Final[dict[str, tuple[int, int]]] = {
+_DEFAULT_TOPIC_LINE_LIMITS: Final[dict[str, tuple[int, int]]] = {
     "ai": (100, 200),
     "cricket": (20, 50),
 }
+
+FEEDS_CONFIG_PATH: Final[Path] = Path(__file__).parent.parent / "feeds.toml"
+
+
+def _load_feeds_config(
+    config_path: Path = FEEDS_CONFIG_PATH,
+) -> tuple[dict[str, list[str]], dict[str, tuple[int, int]]]:
+    """Load feeds from TOML config, falling back to built-in defaults."""
+    if not config_path.exists():
+        logger.info("No feeds.toml found, using built-in defaults")
+        return dict(_DEFAULT_FEEDS), dict(_DEFAULT_TOPIC_LINE_LIMITS)
+
+    with open(config_path, "rb") as f:
+        data = tomllib.load(f)
+
+    topics = data.get("topics", {})
+    feeds: dict[str, list[str]] = {}
+    limits: dict[str, tuple[int, int]] = {}
+
+    for name, topic in topics.items():
+        if "feeds" not in topic or not isinstance(topic["feeds"], list):
+            logger.warning("Topic '%s' in feeds.toml missing 'feeds' list, skipping", name)
+            continue
+        feeds[name] = topic["feeds"]
+        if "line_limits" in topic and len(topic["line_limits"]) == 2:
+            limits[name] = (topic["line_limits"][0], topic["line_limits"][1])
+
+    if not feeds:
+        logger.warning("No valid topics in feeds.toml, falling back to defaults")
+        return dict(_DEFAULT_FEEDS), dict(_DEFAULT_TOPIC_LINE_LIMITS)
+
+    return feeds, limits
+
+
+FEEDS, TOPIC_LINE_LIMITS = _load_feeds_config()
 DEFAULT_LINE_LIMITS: Final[tuple[int, int]] = (50, 100)
 
 # --- Fetch ---
