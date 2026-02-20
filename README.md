@@ -4,16 +4,16 @@
 
 RSS news, summarized by an LLM — you bring your own key.
 
-Pull from multiple feeds per topic, get a clean digest in markdown. Everything is configurable in one place.
+Pulls from multiple feeds per topic, delivers a clean daily digest in markdown.
 
 ## What it does
 
-- Fetches articles from RSS (last 72 hours)
-- Summarizes with an LLM (you provide the API key)
-- Outputs markdown grouped by theme with source attribution
-- URL validation and sanitization for security
+- Fetches recent articles from RSS feeds (last 72 hours)
+- Summarizes them with an LLM into a themed markdown digest
+- Automatically retries failed feeds to avoid missing articles
+- Runs daily via GitHub Actions, or on-demand from the command line
 
-**Current topics:** AI (18 sources), Cricket (3 sources). Add or change topics in [`src/config.py`](src/config.py).
+**Built-in topics:** AI (18 sources) and Cricket (3 sources). Add your own topics by editing [`feeds.toml`](feeds.toml).
 
 ## Quick start
 
@@ -23,38 +23,52 @@ cp .env.example .env   # Add your API key and base URL
 uv run get-news --topic ai
 ```
 
-**Your API key:** The summarizer uses any OpenAI-compatible API. I used LiteLLM + Gemini by default, but you can point `LITELLM_BASE_URL` at your own proxy or service—OpenAI, Anthropic, local models, etc. Put the key in `.env` as `OPENAI_API_KEY`.
+**Skip the LLM** for a quick local test (no API key needed):
 
-## Configuration
+```bash
+uv run get-news --topic ai --skip-summarize
+```
 
-All settings live in [`src/config.py`](src/config.py): topics, RSS feeds, line limits, LLM model, fetch options, output format. Add a topic by adding entries to `FEEDS` and `TOPIC_LINE_LIMITS`.
+**Your API key:** The summarizer works with any OpenAI-compatible API. Set `OPENAI_API_KEY` and `LITELLM_BASE_URL` in `.env`.
 
 ## Usage
 
 ```bash
-uv run get-news --topic ai
-uv run get-news --topic cricket
-uv run get-news --topic both
-uv run get-news --topic ai --output-dir /path/to/output
+uv run get-news --topic ai              # AI digest
+uv run get-news --topic cricket          # Cricket digest
+uv run get-news --topic both             # Both topics
+uv run get-news --topic ai --dry-run     # Preview in terminal, no file written
+uv run get-news --topic ai --skip-summarize --dry-run   # Quick preview, no LLM
 ```
+
+Output goes to `daily-news/` as `news-MM-DD-YY.md`.
+
+## Adding custom topics
+
+Edit [`feeds.toml`](feeds.toml) in the project root — no code changes needed:
+
+```toml
+[topics.cybersecurity]
+feeds = [
+    "https://feeds.feedburner.com/TheHackersNews",
+    "https://krebsonsecurity.com/feed/",
+]
+line_limits = [50, 100]   # optional: min/max lines for LLM summary
+```
+
+The new topic is available immediately: `uv run get-news --topic cybersecurity`
+
+## GitHub Actions
+
+- **Daily digest** — Runs at 5 AM Central, generates both topics, opens a PR to `dev` with auto-merge
+- **CI** — Lint and tests on every PR to `dev`
 
 ## Development
 
 ```bash
-uv run pytest -v
-uv run ruff check . && uv run ruff format .
-uv run mypy src/
-uv run pip-audit
+make test       # Run tests
+make lint       # Check code style
+make format     # Auto-fix formatting
+make typecheck  # Type checking
+make audit      # Dependency vulnerability scan
 ```
-
-## GitHub Actions
-
-**Daily news:** Runs at 5 AM Central (11:00 UTC), generates both topics, opens a PR to `dev` with auto-merge. Manual trigger via `workflow_dispatch`.
-
-**CI:** Lint and tests on PRs to `dev`.
-
-**Secrets:** `OPENAI_API_KEY`, `LITELLM_BASE_URL`, and `PAT_TOKEN` (for PR creation).
-
-## Output
-
-Files go to `daily-news/` as `news-MM-DD-YY.md` (duplicates get `(2)`, `(3)`, etc.). Each file has summaries grouped by theme with source attribution.

@@ -31,13 +31,14 @@ Run a single test: `uv run pytest tests/test_rss_fetcher.py::test_sanitize_strip
 
 **Data flow:** CLI (`cli.py`) → async RSS fetch (`rss_fetcher.py`) → LLM summarize (`summarizer.py`) → write markdown (`markdown_generator.py`)
 
-- **cli.py** — Click entry point (`get-news` command), orchestrates the pipeline. `--skip-summarize` flag bypasses LLM and uses `_format_articles_as_markdown()` to produce a plain listing
-- **config.py** — All constants centralized here (feeds, timeouts, line limits, LLM model). No magic numbers elsewhere
-- **rss_fetcher.py** — `fetch_all_feeds()` uses `asyncio` + `httpx.AsyncClient` for concurrent fetching. `Article` dataclass holds parsed data. Filters to last 72 hours, max 25 articles/feed
+- **cli.py** — Click entry point (`get-news` command), orchestrates the pipeline. `--skip-summarize` flag bypasses LLM and uses `_format_articles_as_markdown()` to produce a plain listing. `--dry-run` flag prints digest to stdout without writing a file
+- **config.py** — Loads topics/feeds from `feeds.toml` via `_load_feeds_config()` (falls back to hardcoded defaults). All other constants centralized here (timeouts, retry settings, line limits, LLM model). No magic numbers elsewhere
+- **rss_fetcher.py** — `fetch_all_feeds()` uses `asyncio` + `httpx.AsyncClient` for concurrent fetching with automatic retry (exponential backoff). `Article` dataclass holds parsed data. Filters to last 72 hours, max 25 articles/feed
 - **summarizer.py** — OpenAI SDK configured with LiteLLM `base_url`. Topic-specific line limits (AI: 100-200, Cricket: 20-50)
 - **markdown_generator.py** — Writes `news-MM-DD-YY.md` to `daily-news/`, duplicates get `(2)` suffix
 - **utils.py** — Shared `EMOJI_PATTERN` regex used by both fetcher and markdown generator
 - **exceptions.py** — `NewsAggregatorError` base, `SummarizationError` for LLM failures
+- **feeds.toml** — User-editable topic/feed configuration loaded by `config.py` at startup
 
 ## Ruff Configuration
 
