@@ -25,6 +25,7 @@ get-news = "src.cli:main"
 [dependency-groups]
 dev = [
     "pytest==8.3.4",
+    "pytest-asyncio==0.25.3",
     "pytest-cov==6.0.0",
     "ruff==0.15.1",
     "mypy==1.15.0",
