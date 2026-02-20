@@ -18,6 +18,8 @@ from .config import (
     ALLOWED_URL_SCHEMES,
     ARTICLES_PER_FEED,
     FEEDS,
+    FETCH_MAX_RETRIES,
+    FETCH_RETRY_BACKOFF,
     MAX_ARTICLE_AGE_HOURS,
     REQUEST_TIMEOUT,
     SOURCE_MAX_LENGTH,
@@ -81,19 +83,37 @@ def fetch_feed(url: str) -> list[Article]:
 
 
 async def _fetch_feed_async(url: str, client: httpx.AsyncClient) -> list[Article]:
-    """Fetch and parse a single RSS feed asynchronously."""
+    """Fetch and parse a single RSS feed asynchronously with retry."""
     if not _is_valid_url(url):
         logger.warning("Invalid URL skipped: %s", url)
         return []
 
-    try:
-        response = await client.get(url, timeout=REQUEST_TIMEOUT, follow_redirects=True)
-        response.raise_for_status()
-    except httpx.HTTPError as e:
-        logger.warning("Failed to fetch %s: %s", url, e)
-        return []
+    for attempt in range(FETCH_MAX_RETRIES + 1):
+        try:
+            response = await client.get(url, timeout=REQUEST_TIMEOUT, follow_redirects=True)
+            response.raise_for_status()
+            return _parse_feed(response.text, url)
+        except httpx.HTTPError as e:
+            if attempt < FETCH_MAX_RETRIES:
+                wait = FETCH_RETRY_BACKOFF * (2**attempt)
+                logger.info(
+                    "Retry %d/%d for %s in %.1fs",
+                    attempt + 1,
+                    FETCH_MAX_RETRIES,
+                    url,
+                    wait,
+                )
+                await asyncio.sleep(wait)
+            else:
+                logger.warning(
+                    "Failed to fetch %s after %d attempts: %s",
+                    url,
+                    FETCH_MAX_RETRIES + 1,
+                    e,
+                )
+                return []
 
-    return _parse_feed(response.text, url)
+    return []  # unreachable, but satisfies type checker
 
 
 def fetch_all_feeds(topic: str) -> list[Article]:
