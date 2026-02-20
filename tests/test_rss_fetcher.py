@@ -1,9 +1,19 @@
 """Tests for RSS fetcher module."""
 
 from datetime import UTC, datetime, timedelta
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
-from src.rss_fetcher import Article, _is_valid_url, _parse_date, _sanitize, fetch_feed
+import httpx
+import pytest
+
+from src.rss_fetcher import (
+    Article,
+    _fetch_feed_async,
+    _is_valid_url,
+    _parse_date,
+    _sanitize,
+    fetch_feed,
+)
 
 
 def test_sanitize_removes_html_tags():
@@ -145,3 +155,56 @@ def test_fetch_feed_http_error(mock_get):
     mock_get.side_effect = httpx.HTTPError("Test error")
     articles = fetch_feed("https://example.com/feed")
     assert articles == []
+
+
+# --- Retry tests for async fetching ---
+
+FEED_XML = """
+<rss version="2.0">
+<channel>
+    <title>Test Feed</title>
+    <item>
+        <title>Retry Article</title>
+        <link>https://example.com/retry</link>
+        <description>Retry desc</description>
+        <pubDate>{date_str}</pubDate>
+    </item>
+</channel>
+</rss>
+"""
+
+
+@pytest.mark.asyncio
+@patch("src.rss_fetcher.asyncio.sleep", new_callable=AsyncMock)
+async def test_fetch_feed_async_retries_on_transient_error(mock_sleep):
+    """Test that _fetch_feed_async retries on transient HTTP error and succeeds."""
+    recent_date = datetime.now(UTC) - timedelta(hours=1)
+    date_str = recent_date.strftime("%a, %d %b %Y %H:%M:%S GMT")
+
+    success_response = MagicMock()
+    success_response.raise_for_status = MagicMock()
+    success_response.text = FEED_XML.format(date_str=date_str)
+
+    client = AsyncMock(spec=httpx.AsyncClient)
+    client.get = AsyncMock(side_effect=[httpx.HTTPError("timeout"), success_response])
+
+    articles = await _fetch_feed_async("https://example.com/feed", client)
+    assert len(articles) == 1
+    assert articles[0].title == "Retry Article"
+    assert client.get.call_count == 2
+    mock_sleep.assert_called_once()
+
+
+@pytest.mark.asyncio
+@patch("src.rss_fetcher.asyncio.sleep", new_callable=AsyncMock)
+async def test_fetch_feed_async_gives_up_after_max_retries(mock_sleep):
+    """Test that _fetch_feed_async returns [] after exhausting retries."""
+    client = AsyncMock(spec=httpx.AsyncClient)
+    client.get = AsyncMock(side_effect=httpx.HTTPError("persistent error"))
+
+    articles = await _fetch_feed_async("https://example.com/feed", client)
+    assert articles == []
+    # 1 initial + 2 retries = 3 calls
+    assert client.get.call_count == 3
+    # sleep called for first 2 attempts (not the last)
+    assert mock_sleep.call_count == 2

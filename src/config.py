@@ -45,6 +45,8 @@ DEFAULT_LINE_LIMITS: Final[tuple[int, int]] = (50, 100)
 REQUEST_TIMEOUT: Final[int] = 30
 ARTICLES_PER_FEED: Final[int] = 25
 MAX_ARTICLE_AGE_HOURS: Final[int] = 72
+FETCH_MAX_RETRIES: Final[int] = 2
+FETCH_RETRY_BACKOFF: Final[float] = 1.5  # seconds, doubles each retry
 ALLOWED_URL_SCHEMES: Final[frozenset[str]] = frozenset({"http", "https"})
 
 # --- Article truncation ---
