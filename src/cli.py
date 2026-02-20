@@ -50,7 +50,13 @@ def _format_articles_as_markdown(articles: list[Article], topic: str) -> str:
     default=False,
     help="Skip LLM summarization and output raw articles as markdown",
 )
-def main(topic: str, output_dir: Path, skip_summarize: bool) -> None:
+@click.option(
+    "--dry-run",
+    is_flag=True,
+    default=False,
+    help="Preview digest to stdout without writing a file",
+)
+def main(topic: str, output_dir: Path, skip_summarize: bool, dry_run: bool) -> None:
     """Fetch and summarize news for a given topic."""
     topics = list(FEEDS.keys()) if topic == "both" else [topic]
     all_summaries = []
@@ -77,6 +83,11 @@ def main(topic: str, output_dir: Path, skip_summarize: bool) -> None:
         return
 
     combined_content = CONTENT_SEPARATOR.join(all_summaries)
+
+    if dry_run:
+        click.echo(combined_content)
+        return
+
     output_path = get_output_path(output_dir)
     write_markdown(combined_content, output_path)
     click.echo(f"Saved to {output_path}")

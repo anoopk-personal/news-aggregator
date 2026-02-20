@@ -130,3 +130,48 @@ def test_cli_skip_summarize_no_summary_field(
     # Empty summary should not appear as a blank paragraph
     assert "**Source:** Example" in written_content
     assert "[Read more](https://example.com/2)" in written_content
+
+
+@patch("src.cli.fetch_all_feeds")
+@patch("src.cli.summarize_articles")
+@patch("src.cli.write_markdown")
+def test_cli_dry_run_prints_to_stdout(
+    mock_write_markdown, mock_summarize_articles, mock_fetch_all_feeds
+):
+    """Test --dry-run prints digest to stdout and does not write a file."""
+    articles = [
+        Article(
+            title="Dry Run Article",
+            link="https://example.com/dry",
+            summary="Dry run summary",
+            source="Example",
+            published=datetime.now(tz=UTC),
+        ),
+    ]
+    mock_fetch_all_feeds.return_value = articles
+
+    runner = CliRunner()
+    result = runner.invoke(main, ["--topic", "ai", "--skip-summarize", "--dry-run"])
+
+    assert result.exit_code == 0
+    assert "# AI News" in result.output
+    assert "### Dry Run Article" in result.output
+    assert "Saved to" not in result.output
+    mock_write_markdown.assert_not_called()
+
+
+@patch("src.cli.fetch_all_feeds")
+@patch("src.cli.summarize_articles")
+@patch("src.cli.write_markdown")
+def test_cli_dry_run_no_articles(
+    mock_write_markdown, mock_summarize_articles, mock_fetch_all_feeds
+):
+    """Test --dry-run with no articles shows 'No articles found.'."""
+    mock_fetch_all_feeds.return_value = []
+
+    runner = CliRunner()
+    result = runner.invoke(main, ["--topic", "ai", "--skip-summarize", "--dry-run"])
+
+    assert result.exit_code == 0
+    assert "No articles found." in result.output
+    mock_write_markdown.assert_not_called()
