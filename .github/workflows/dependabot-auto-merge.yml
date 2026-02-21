@@ -1,5 +1,10 @@
 name: Dependabot auto-merge
 
+# Triggers on all PRs. GitHub Actions does not support filtering pull_request
+# by head branch name, so we cannot restrict to dependabot/* branches at the
+# trigger level. The `if: github.actor == 'dependabot[bot]'` condition on the
+# job is the canonical guard — non-Dependabot PRs show a SKIPPED check, which
+# is the expected behavior per GitHub's own Dependabot auto-merge docs.
 on: pull_request
 
 permissions:

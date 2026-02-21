@@ -58,12 +58,24 @@ All changes go through PRs to `dev`. Branch protection requires the `lint-and-te
 
 **Branch prefixes:** `feature/`, `fix/`, `docs/`, `test/`, `chore/`. The `daily-news/` prefix is reserved for the automated workflow.
 
-Daily-news PRs auto-merge (squash) once CI passes. Other PRs require manual merge.
+Daily-news and Dependabot PRs auto-merge (squash) once CI passes. Other PRs require manual merge.
 
 ## GitHub Actions
 
 - **ci.yml** — Runs ruff + pytest on PRs/pushes to `dev`. Job name: `lint-and-test`
 - **daily-news.yml** — Scheduled at 11:00 UTC (5 AM Central), creates `daily-news/YYYY-MM-DD` branch, generates news, opens PR, and enables auto-merge
+- **dependabot-auto-merge.yml** — Auto-merges Dependabot patch/minor PRs. Triggers on all PRs but skips non-Dependabot actors via job condition
+
+## Security
+
+Feeds are untrusted input. Defenses are layered across the pipeline:
+
+- **SSRF** (`rss_fetcher.py`): `_is_private_host()` rejects private/reserved IPs (IPv4 + IPv6), trailing dots, zone IDs, bare integers, `file://` schemes
+- **Prompt injection** (`summarizer.py`): Articles serialized as JSON (not XML tags) to avoid prompt boundary confusion
+- **Config validation** (`config.py`): Feed URLs validated at load time (HTTPS, no private hosts). Env vars stripped of whitespace
+- **XSS** (`markdown_generator.py`, `rss_fetcher.py`): bleach strips HTML; `javascript:`, `data:`, `vbscript:` URI schemes neutralized (case-insensitive)
+- **XXE**: feedparser does not process external entities
+- **Pre-commit hook** (`scripts/pre-commit`): Enforces commit author email. Install with `make install-hooks`
 
 ## Environment Variables
 

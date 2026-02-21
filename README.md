@@ -98,6 +98,8 @@ Configuration is centralized in `config.py`. Feed URLs and topics live in `feeds
 
 **Daily digest:** GitHub Actions runs at 5 AM Central, generates both topics, opens a PR to `dev`, auto-merges when CI passes. Trigger manually from the Actions tab.
 
+**Dependabot:** Weekly dependency updates. Patch and minor PRs auto-merge (squash) after CI passes; major updates require manual review.
+
 **CI:** Every PR runs lint (ruff), type check (mypy), dependency audit (pip-audit), and tests (pytest, 80% coverage minimum).
 
 **Fork setup:** Add `OPENAI_API_KEY`, `LITELLM_BASE_URL`, and `PAT_TOKEN` as repository secrets.
@@ -113,6 +115,7 @@ Configuration is centralized in `config.py`. Feed URLs and topics live in `feeds
 | `make format` | Auto-fix with ruff |
 | `make typecheck` | `mypy --strict` on `src/` |
 | `make audit` | `pip-audit` vulnerability scan |
+| `make install-hooks` | Install pre-commit hook (email enforcement) |
 
 Single test: `uv run pytest tests/test_rss_fetcher.py::test_sanitize_strips_html -v`
 
@@ -120,12 +123,15 @@ Single test: `uv run pytest tests/test_rss_fetcher.py::test_sanitize_strips_html
 
 Feeds are untrusted input. The tool defends at every boundary:
 
-- **SSRF:** Rejects private IPs, localhost, `file://`, and other non-HTTP schemes before fetching
+- **SSRF:** Rejects private IPs (IPv4 + IPv6), localhost, `file://`, and other non-HTTP schemes before fetching
+- **Prompt injection:** Articles serialized as JSON to the LLM, avoiding prompt boundary confusion
 - **XSS:** Strips HTML tags via bleach; neutralizes `javascript:`, `data:`, `vbscript:` URIs (case-insensitive)
+- **Config validation:** Feed URLs validated at load time; env vars stripped of whitespace
 - **HTTPS only:** LiteLLM base URL must be HTTPS
 - **Input truncation:** Titles (500 chars), summaries (1000), sources (100)
 - **Pinned deps:** Exact versions, weekly Dependabot + `pip-audit` in CI
 - **No secrets in repo:** `.env` gitignored, `.env.example` provided
+- **Pre-commit hook:** Enforces commit author email (`make install-hooks`)
 
 ## Stack
 
