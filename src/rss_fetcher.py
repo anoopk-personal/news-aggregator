@@ -42,14 +42,24 @@ class Article:
     published: datetime | None = None
 
 
-def _is_private_host(netloc: str) -> bool:
-    """Check if the netloc is a private/reserved IP or localhost."""
-    hostname = netloc.split(":")[0]  # strip port
+def _is_private_host(hostname: str) -> bool:
+    """Check if a hostname is a private/reserved IP or localhost."""
+    if not hostname:
+        return True
+    hostname = hostname.rstrip(".")
     if hostname.lower() in ("localhost", "localhost.localdomain"):
         return True
+    # Strip IPv6 zone ID (e.g. fe80::1%eth0)
+    if "%" in hostname:
+        hostname = hostname.split("%")[0]
     try:
         return ipaddress.ip_address(hostname).is_private
     except ValueError:
+        pass
+    # Bare integers (e.g. "0") are treated as 0.0.0.0 by most network stacks
+    try:
+        return ipaddress.ip_address(int(hostname)).is_private
+    except (ValueError, OverflowError):
         return False  # regular domain name, allow it
 
 
@@ -59,7 +69,7 @@ def _is_valid_url(url: str) -> bool:
         parsed = urlparse(url)
         if parsed.scheme not in ALLOWED_URL_SCHEMES or not parsed.netloc:
             return False
-        if _is_private_host(parsed.netloc):
+        if _is_private_host(parsed.hostname or ""):
             return False
         return True
     except (ValueError, AttributeError):
@@ -157,6 +167,7 @@ async def _fetch_all_feeds_async(urls: list[str], topic: str) -> list[Article]:
 
 def _parse_feed(text: str, url: str) -> list[Article]:
     """Parse RSS feed text into articles."""
+    # feedparser uses html.parser/sgmllib backends that don't process external entities (XXE-safe)
     feed = feedparser.parse(text)
     source = _sanitize(feed.feed.get("title", ""))[:SOURCE_MAX_LENGTH] or urlparse(url).netloc
 

@@ -1,4 +1,4 @@
-.PHONY: install test test-cov lint format typecheck audit run-ai run-cricket run-both clean
+.PHONY: install test test-cov lint format typecheck audit run-ai run-cricket run-both clean install-hooks
 
 install:
 	uv sync
@@ -31,6 +31,11 @@ run-cricket:
 
 run-both:
 	uv run get-news --topic both --skip-summarize
+
+install-hooks:
+	cp scripts/pre-commit .git/hooks/pre-commit
+	chmod +x .git/hooks/pre-commit
+	@echo "Pre-commit hook installed."
 
 clean:
 	rm -rf __pycache__ .pytest_cache .coverage htmlcov .ruff_cache
