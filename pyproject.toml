@@ -28,7 +28,7 @@ dev = [
     "pytest-asyncio==0.25.3",
     "pytest-cov==6.0.0",
     "ruff==0.15.1",
-    "mypy==1.15.0",
+    "mypy==1.19.1",
     "types-bleach==6.2.0.20241123",
     "types-python-dateutil==2.9.0.20241206",
     "pip-audit==2.7.3",
