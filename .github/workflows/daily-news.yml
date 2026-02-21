@@ -46,6 +46,8 @@ jobs:
 
       - name: Create PR with news
         env:
+          # PAT_TOKEN required: GITHUB_TOKEN-created PRs don't trigger other workflows,
+          # so the required lint-and-test check never runs and auto-merge never executes.
           GH_TOKEN: ${{ secrets.PAT_TOKEN }}
         run: |
           DATE=$(date +%Y-%m-%d)

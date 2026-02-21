@@ -5,6 +5,7 @@ import os
 import tomllib
 from pathlib import Path
 from typing import Final
+from urllib.parse import urlparse
 
 from .exceptions import SummarizationError
 
@@ -47,6 +48,15 @@ _DEFAULT_TOPIC_LINE_LIMITS: Final[dict[str, tuple[int, int]]] = {
 FEEDS_CONFIG_PATH: Final[Path] = Path(__file__).parent.parent / "feeds.toml"
 
 
+def _validate_feed_url(url: str) -> bool:
+    """Lightweight check that a feed URL has a valid scheme and netloc."""
+    try:
+        parsed = urlparse(url)
+        return parsed.scheme in ("http", "https") and bool(parsed.netloc)
+    except (ValueError, AttributeError):
+        return False
+
+
 def _load_feeds_config(
     config_path: Path = FEEDS_CONFIG_PATH,
 ) -> tuple[dict[str, list[str]], dict[str, tuple[int, int]]]:
@@ -66,7 +76,16 @@ def _load_feeds_config(
         if "feeds" not in topic or not isinstance(topic["feeds"], list):
             logger.warning("Topic '%s' in feeds.toml missing 'feeds' list, skipping", name)
             continue
-        feeds[name] = topic["feeds"]
+        valid_urls = []
+        for url in topic["feeds"]:
+            if _validate_feed_url(url):
+                valid_urls.append(url)
+            else:
+                logger.warning("Invalid feed URL in topic '%s', skipping: %s", name, url)
+        if not valid_urls:
+            logger.warning("Topic '%s' has no valid feed URLs, skipping", name)
+            continue
+        feeds[name] = valid_urls
         if "line_limits" in topic and len(topic["line_limits"]) == 2:
             limits[name] = (topic["line_limits"][0], topic["line_limits"][1])
 
@@ -102,8 +121,8 @@ LITELLM_TIMEOUT: Final[int] = 180  # seconds
 
 def get_llm_credentials() -> tuple[str, str]:
     """Return (api_key, base_url) from env. Raises SummarizationError if missing."""
-    key = os.environ.get("OPENAI_API_KEY")
-    url = os.environ.get("LITELLM_BASE_URL")
+    key = (os.environ.get("OPENAI_API_KEY") or "").strip()
+    url = (os.environ.get("LITELLM_BASE_URL") or "").strip()
     if not key:
         raise SummarizationError("OPENAI_API_KEY not set")
     if not url:

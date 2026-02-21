@@ -114,6 +114,30 @@ def test_is_valid_url_rejects_loopback():
     assert _is_valid_url("http://127.0.0.1/feed") is False
 
 
+def test_is_valid_url_rejects_localhost_trailing_dot():
+    assert _is_valid_url("http://localhost./feed") is False
+
+
+def test_is_valid_url_rejects_ipv6_loopback():
+    assert _is_valid_url("http://[::1]/feed") is False
+
+
+def test_is_valid_url_rejects_ipv6_private():
+    assert _is_valid_url("http://[fe80::1]/feed") is False
+
+
+def test_is_valid_url_rejects_ipv6_with_zone_id():
+    assert _is_valid_url("http://[fe80::1%25eth0]/feed") is False
+
+
+def test_is_valid_url_rejects_zero_ip():
+    assert _is_valid_url("http://0/feed") is False
+
+
+def test_is_valid_url_rejects_zero_quad():
+    assert _is_valid_url("http://0.0.0.0/feed") is False
+
+
 @patch("src.rss_fetcher.httpx.get")
 def test_fetch_feed_success(mock_get):
     """Test successful feed fetching and parsing."""

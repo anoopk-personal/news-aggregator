@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+# Pre-commit hook: enforce allowed git email addresses.
+# Install with: make install-hooks
+
+set -euo pipefail
+
+ALLOWED_EMAILS=(
+    "anoop1986k@gmail.com"
+)
+
+CURRENT_EMAIL=$(git config user.email 2>/dev/null || echo "")
+
+for allowed in "${ALLOWED_EMAILS[@]}"; do
+    if [ "$CURRENT_EMAIL" = "$allowed" ]; then
+        exit 0
+    fi
+done
+
+echo "ERROR: git user.email '${CURRENT_EMAIL}' is not in the allowed list."
+echo "Allowed emails: ${ALLOWED_EMAILS[*]}"
+echo "Set your email with: git config user.email <allowed-email>"
+exit 1

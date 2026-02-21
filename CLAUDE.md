@@ -22,6 +22,7 @@ make audit          # pip-audit dependency vulnerability scan
 make run-ai         # fetch AI articles (no LLM, skips summarization)
 make run-cricket    # fetch cricket articles (no LLM, skips summarization)
 make run-both       # fetch all articles (no LLM, skips summarization)
+make install-hooks  # install git pre-commit hook (email enforcement)
 ```
 
 Run a single test file: `uv run pytest tests/test_rss_fetcher.py -v`
