@@ -4,21 +4,9 @@ on:
   schedule:
     # 5 AM Central US = 11:00 UTC (CST) or 10:00 UTC (CDT)
     - cron: '0 11 * * *'
-  workflow_dispatch:
-    inputs:
-      topic:
-        description: 'News topic'
-        required: false
-        default: 'both'
-        type: choice
-        options:
-          - both
-          - ai
-          - cricket
 
 permissions:
   contents: write
-  pull-requests: write
 
 jobs:
   generate-news:
@@ -41,13 +29,13 @@ jobs:
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           LITELLM_BASE_URL: ${{ secrets.LITELLM_BASE_URL }}
-          NEWS_TOPIC: ${{ github.event.inputs.topic || 'both' }}
+          NEWS_TOPIC: both
         run: uv run get-news --topic "$NEWS_TOPIC"
 
       - name: Create PR with news
         env:
           # PAT_TOKEN required: GITHUB_TOKEN-created PRs don't trigger other workflows,
-          # so the required lint-and-test check never runs and auto-merge never executes.
+          # so the required lint-and-test check never runs.
           GH_TOKEN: ${{ secrets.PAT_TOKEN }}
         run: |
           DATE=$(date +%Y-%m-%d)
@@ -78,9 +66,4 @@ jobs:
           else
             echo "PR #${EXISTING_PR} already exists for this branch"
             PR_NUMBER="$EXISTING_PR"
-          fi
-
-          # Enable auto-merge (will merge once CI passes)
-          if [ -n "$PR_NUMBER" ]; then
-            gh pr merge "$PR_NUMBER" --auto --squash --delete-branch
           fi
