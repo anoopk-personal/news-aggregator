@@ -3,57 +3,31 @@
 [![CI](https://github.com/anoopk-personal/news-aggregator/actions/workflows/ci.yml/badge.svg)](https://github.com/anoopk-personal/news-aggregator/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
-RSS feeds in, markdown digest out. Optionally summarized by an LLM.
+A CLI tool that turns RSS feeds into concise daily markdown digests — optionally summarized by an LLM. Ships with **AI** and **Cricket** topics; add your own in a TOML file.
 
-Fetches articles from RSS feeds, groups them by topic, and either lists them directly or passes them through an LLM (any OpenAI-compatible API) for a concise, themed summary. Ships with AI and Cricket topics; add your own in a TOML file.
-
----
-
-### Try it now (no API key needed)
+## Quick start
 
 ```bash
-git clone git@github.com:anoopk-personal/news-aggregator.git
+git clone https://github.com/anoopk-personal/news-aggregator.git
 cd news-aggregator
 uv sync
-uv run get-news --topic ai --skip-summarize --dry-run
+uv run get-news --topic ai --skip-summarize --dry-run   # no API key needed
 ```
 
-### Full pipeline (with LLM)
+To enable LLM summarization:
 
 ```bash
 cp .env.example .env   # set OPENAI_API_KEY and LITELLM_BASE_URL
 uv run get-news --topic ai
 ```
 
----
+Output lands in `daily-news/news-MM-DD-YY.md` (or stdout with `--dry-run`).
 
-## What you get
-
-```markdown
-## AI News Digest
-
-### New Frontiers in Foundation Models
-
-**Google Releases Gemini 3.1 Pro with 1M Token Context Window**
-Google has launched Gemini 3.1 Pro, a significant update focused on
-enhancing capabilities for AI agents. The model boasts a 1 million
-token context window and improved reasoning stability.
-(Source: MarkTechPost, TechCrunch)
-
-**Anthropic Launches Claude Sonnet 4.6 with Opus-Level Coding**
-Anthropic released Claude Sonnet 4.6, its latest mainstream model,
-which promises coding capabilities nearly on par with its top-tier
-Opus model at the Sonnet price point. (Source: The New Stack)
-```
-
-Articles from the last 72 hours, grouped into thematic sections, with sources cited. Output lands in `daily-news/news-MM-DD-YY.md`.
-
-## CLI reference
+## CLI options
 
 ```
 uv run get-news [OPTIONS]
 
-Options:
   --topic TEXT        Required. ai, cricket, both, or any custom topic
   --output-dir PATH  Output directory (default: daily-news/)
   --skip-summarize   Bypass LLM, list raw articles
@@ -62,7 +36,7 @@ Options:
 
 ## Custom topics
 
-Add a section to [`feeds.toml`](feeds.toml):
+Add a section to [`feeds.toml`](feeds.toml) — no code changes required:
 
 ```toml
 [topics.cybersecurity]
@@ -73,69 +47,30 @@ feeds = [
 line_limits = [50, 100]   # min/max lines for the LLM summary
 ```
 
-```bash
-uv run get-news --topic cybersecurity
-```
-
-No code changes required. The topic is picked up automatically.
-
-## Architecture
-
-```
-feeds.toml           CLI (click)          LLM (Gemini via LiteLLM)      Output
-+-----------+      +------------+        +---------------------+      +----------------+
-| RSS feeds | ---> | Async HTTP | -----> | Summarize by topic  | ---> | news-MM-DD-YY  |
-| per topic |      | fetch +    |        | (OpenAI-compatible) |      | .md in         |
-|           |      | retry      |        |                     |      | daily-news/    |
-+-----------+      +------------+        +---------------------+      +----------------+
-                   Filters to last                                    Or stdout
-                   72h, max 25/feed                                   with --dry-run
-```
-
-Configuration is centralized in `config.py`. Feed URLs and topics live in `feeds.toml` (with hardcoded fallbacks). Custom exceptions in `exceptions.py`.
-
-## Automation
-
-**Daily digest:** GitHub Actions runs at 5 AM Central, generates both topics, opens a PR to `dev`, auto-merges when CI passes. Trigger manually from the Actions tab.
-
-**Dependabot:** Weekly dependency updates. Patch and minor PRs auto-merge (squash) after CI passes; major updates require manual review.
-
-**CI:** Every PR runs lint (ruff), type check (mypy), dependency audit (pip-audit), and tests (pytest, 80% coverage minimum).
-
-**Fork setup:** Add `OPENAI_API_KEY`, `LITELLM_BASE_URL`, and `PAT_TOKEN` as repository secrets.
-
 ## Development
 
 | Command | What it does |
 |---------|-------------|
-| `make install` | `uv sync` |
-| `make test` | `pytest -v` |
+| `make install` | Install dependencies (`uv sync`) |
+| `make test` | Run tests |
 | `make test-cov` | Tests with 80% coverage gate |
-| `make lint` | `ruff check` + format check |
-| `make format` | Auto-fix with ruff |
-| `make typecheck` | `mypy --strict` on `src/` |
-| `make audit` | `pip-audit` vulnerability scan |
-| `make install-hooks` | Install pre-commit hook (email enforcement) |
+| `make lint` | Lint + format check (ruff) |
+| `make format` | Auto-fix lint issues |
+| `make typecheck` | Type check with mypy |
+| `make audit` | Dependency vulnerability scan |
+| `make install-hooks` | Install git pre-commit hook |
 
-Single test: `uv run pytest tests/test_rss_fetcher.py::test_sanitize_strips_html -v`
+Run a single test: `uv run pytest tests/test_rss_fetcher.py::test_name -v`
+
+## Automation
+
+A GitHub Actions workflow runs daily at 5 AM Central and opens a PR with the generated digest. Dependabot keeps dependencies up to date with weekly PRs.
+
+**Fork setup:** Add `OPENAI_API_KEY`, `LITELLM_BASE_URL`, and `PAT_TOKEN` as [repository secrets](https://docs.github.com/en/actions/security-for-github-actions/security-guides/using-secrets-in-github-actions).
 
 ## Security
 
-Feeds are untrusted input. The tool defends at every boundary:
-
-- **SSRF:** Rejects private IPs (IPv4 + IPv6), localhost, `file://`, and other non-HTTP schemes before fetching
-- **Prompt injection:** Articles serialized as JSON to the LLM, avoiding prompt boundary confusion
-- **XSS:** Strips HTML tags via bleach; neutralizes `javascript:`, `data:`, `vbscript:` URIs (case-insensitive)
-- **Config validation:** Feed URLs validated at load time; env vars stripped of whitespace
-- **HTTPS only:** LiteLLM base URL must be HTTPS
-- **Input truncation:** Titles (500 chars), summaries (1000), sources (100)
-- **Pinned deps:** Exact versions, weekly Dependabot + `pip-audit` in CI
-- **No secrets in repo:** `.env` gitignored, `.env.example` provided
-- **Pre-commit hook:** Enforces commit author email (`make install-hooks`)
-
-## Stack
-
-Python 3.12 | uv | click | httpx | feedparser | openai SDK | bleach | ruff | mypy | pytest
+Feeds are untrusted input. Defenses include SSRF protection (private IP rejection), HTML sanitization, prompt injection mitigation (JSON serialization), HTTPS enforcement, and input truncation. See [SECURITY.md](SECURITY.md) for reporting guidelines.
 
 ## License
 

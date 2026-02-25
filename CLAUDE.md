@@ -22,7 +22,7 @@ make audit          # pip-audit dependency vulnerability scan
 make run-ai         # fetch AI articles (no LLM, skips summarization)
 make run-cricket    # fetch cricket articles (no LLM, skips summarization)
 make run-both       # fetch all articles (no LLM, skips summarization)
-make install-hooks  # install git pre-commit hook (email enforcement)
+make install-hooks  # install git pre-commit hook (email validation)
 ```
 
 Run a single test file: `uv run pytest tests/test_rss_fetcher.py -v`
@@ -58,12 +58,12 @@ All changes go through PRs to `dev`. Branch protection requires the `lint-and-te
 
 **Branch prefixes:** `feature/`, `fix/`, `docs/`, `test/`, `chore/`. The `daily-news/` prefix is reserved for the automated workflow.
 
-Daily-news and Dependabot PRs auto-merge (squash) once CI passes. Other PRs require manual merge.
+Daily-news PRs require manual merge. Dependabot PRs auto-merge (squash) once CI passes. Other PRs require manual merge.
 
 ## GitHub Actions
 
 - **ci.yml** — Runs ruff + pytest on PRs/pushes to `dev`. Job name: `lint-and-test`
-- **daily-news.yml** — Scheduled at 11:00 UTC (5 AM Central), creates `daily-news/YYYY-MM-DD` branch, generates news, opens PR, and enables auto-merge
+- **daily-news.yml** — Scheduled at 11:00 UTC (5 AM Central), creates `daily-news/YYYY-MM-DD` branch, generates news, and opens a PR (manual merge required)
 - **dependabot-auto-merge.yml** — Auto-merges Dependabot patch/minor PRs. Triggers on all PRs but skips non-Dependabot actors via job condition
 
 ## Security
