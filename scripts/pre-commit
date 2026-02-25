@@ -1,22 +1,23 @@
 #!/usr/bin/env bash
-# Pre-commit hook: enforce allowed git email addresses.
+# Pre-commit hook: enforce that a git email address is configured.
+# Rejects commits with empty or default/example email addresses.
 # Install with: make install-hooks
 
 set -euo pipefail
 
-ALLOWED_EMAILS=(
-    "anoop1986k@gmail.com"
-)
-
 CURRENT_EMAIL=$(git config user.email 2>/dev/null || echo "")
 
-for allowed in "${ALLOWED_EMAILS[@]}"; do
-    if [ "$CURRENT_EMAIL" = "$allowed" ]; then
-        exit 0
-    fi
-done
+if [ -z "$CURRENT_EMAIL" ]; then
+    echo "ERROR: git user.email is not configured."
+    echo "Set your email with: git config user.email <your-email>"
+    exit 1
+fi
 
-echo "ERROR: git user.email '${CURRENT_EMAIL}' is not in the allowed list."
-echo "Allowed emails: ${ALLOWED_EMAILS[*]}"
-echo "Set your email with: git config user.email <allowed-email>"
-exit 1
+# Reject obvious placeholder or unconfigured emails
+if [[ "$CURRENT_EMAIL" =~ @example\.com$ ]] || [[ "$CURRENT_EMAIL" == "you@yours.com" ]]; then
+    echo "ERROR: git user.email '${CURRENT_EMAIL}' looks like a placeholder."
+    echo "Set your real email with: git config user.email <your-email>"
+    exit 1
+fi
+
+exit 0

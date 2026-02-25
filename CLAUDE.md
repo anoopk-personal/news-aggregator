@@ -75,7 +75,7 @@ Feeds are untrusted input. Defenses are layered across the pipeline:
 - **Config validation** (`config.py`): Feed URLs validated at load time (HTTPS, no private hosts). Env vars stripped of whitespace
 - **XSS** (`markdown_generator.py`, `rss_fetcher.py`): bleach strips HTML; `javascript:`, `data:`, `vbscript:` URI schemes neutralized (case-insensitive)
 - **XXE**: feedparser does not process external entities
-- **Pre-commit hook** (`scripts/pre-commit`): Enforces commit author email. Install with `make install-hooks`
+- **Pre-commit hook** (`scripts/pre-commit`): Rejects commits with empty or placeholder git email. Install with `make install-hooks`
 
 ## Environment Variables
 
