@@ -5,12 +5,10 @@ from pathlib import Path
 import pytest
 
 from src.config import (
-    _DEFAULT_FEEDS,
-    _DEFAULT_TOPIC_LINE_LIMITS,
     _load_feeds_config,
     get_llm_credentials,
 )
-from src.exceptions import SummarizationError
+from src.exceptions import NewsAggregatorError, SummarizationError
 
 
 def test_load_feeds_from_toml(tmp_path: Path):
@@ -35,21 +33,19 @@ feeds = ["https://example.com/py-feed", "https://example.com/py-feed2"]
     assert "python" not in limits  # no line_limits set
 
 
-def test_load_feeds_fallback_when_no_file(tmp_path: Path):
-    """Test that built-in defaults are used when feeds.toml doesn't exist."""
+def test_load_feeds_raises_when_no_file(tmp_path: Path):
+    """Test that NewsAggregatorError is raised when feeds.toml doesn't exist."""
     config = tmp_path / "nonexistent.toml"
-    feeds, limits = _load_feeds_config(config)
-    assert feeds == _DEFAULT_FEEDS
-    assert limits == _DEFAULT_TOPIC_LINE_LIMITS
+    with pytest.raises(NewsAggregatorError, match="feeds.toml not found"):
+        _load_feeds_config(config)
 
 
-def test_load_feeds_fallback_on_empty_topics(tmp_path: Path):
-    """Test fallback to defaults when TOML has no valid topics."""
+def test_load_feeds_raises_on_empty_topics(tmp_path: Path):
+    """Test that NewsAggregatorError is raised when TOML has no valid topics."""
     config = tmp_path / "feeds.toml"
     config.write_text("[topics]\n")
-    feeds, limits = _load_feeds_config(config)
-    assert feeds == _DEFAULT_FEEDS
-    assert limits == _DEFAULT_TOPIC_LINE_LIMITS
+    with pytest.raises(NewsAggregatorError, match="No valid topics"):
+        _load_feeds_config(config)
 
 
 def test_load_feeds_skips_topic_without_feeds_key(tmp_path: Path):
@@ -77,6 +73,21 @@ def test_load_feeds_ignores_malformed_line_limits(tmp_path: Path):
 [topics.test]
 feeds = ["https://example.com/feed"]
 line_limits = [10]
+"""
+    )
+    feeds, limits = _load_feeds_config(config)
+    assert "test" in feeds
+    assert "test" not in limits
+
+
+def test_load_feeds_ignores_non_integer_line_limits(tmp_path: Path):
+    """Test that line_limits with non-integer values are ignored."""
+    config = tmp_path / "feeds.toml"
+    config.write_text(
+        """
+[topics.test]
+feeds = ["https://example.com/feed"]
+line_limits = ["ten", "twenty"]
 """
     )
     feeds, limits = _load_feeds_config(config)

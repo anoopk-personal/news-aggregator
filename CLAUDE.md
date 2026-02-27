@@ -30,10 +30,11 @@ Run a single test: `uv run pytest tests/test_rss_fetcher.py::test_sanitize_strip
 
 ## Architecture
 
-**Data flow:** CLI (`cli.py`) → async RSS fetch (`rss_fetcher.py`) → LLM summarize (`summarizer.py`) → write markdown (`markdown_generator.py`)
+**Data flow:** CLI (`cli.py`) → async RSS fetch (`rss_fetcher.py`) → deduplicate (`deduplicator.py`) → LLM summarize (`summarizer.py`) → write markdown (`markdown_generator.py`)
 
-- **cli.py** — Click entry point (`get-news` command), orchestrates the pipeline. `--skip-summarize` flag bypasses LLM and uses `_format_articles_as_markdown()` to produce a plain listing. `--dry-run` flag prints digest to stdout without writing a file
-- **config.py** — Loads topics/feeds from `feeds.toml` via `_load_feeds_config()` (falls back to hardcoded defaults). All other constants centralized here (timeouts, retry settings, line limits, LLM model). No magic numbers elsewhere
+- **cli.py** — Click entry point (`get-news` command), orchestrates the pipeline. `--skip-summarize` flag bypasses LLM and uses `_format_articles_as_markdown()` to produce a plain listing. `--skip-dedup` flag bypasses article deduplication. `--dry-run` flag prints digest to stdout without writing a file
+- **config.py** — Loads topics/feeds from `feeds.toml` via `_load_feeds_config()` (raises `NewsAggregatorError` if missing). All other constants centralized here (timeouts, retry settings, line limits, dedup threshold, LLM model). No magic numbers elsewhere
+- **deduplicator.py** — `deduplicate_articles()` groups near-duplicate articles using `difflib.SequenceMatcher` similarity (threshold: `DEDUP_SIMILARITY_THRESHOLD`). Single-linkage clustering keeps the article with the longest summary from each cluster and adds "Also covered by" attribution
 - **rss_fetcher.py** — `fetch_all_feeds()` uses `asyncio` + `httpx.AsyncClient` for concurrent fetching with automatic retry (exponential backoff). `Article` dataclass holds parsed data. Filters to last 72 hours, max 25 articles/feed
 - **summarizer.py** — OpenAI SDK configured with LiteLLM `base_url`. Topic-specific line limits (AI: 100-200, Cricket: 20-50)
 - **markdown_generator.py** — Writes `news-MM-DD-YY.md` to `daily-news/`, duplicates get `(2)` suffix
@@ -62,7 +63,7 @@ Daily-news PRs require manual merge. Dependabot PRs auto-merge (squash) once CI 
 
 ## GitHub Actions
 
-- **ci.yml** — Runs ruff + pytest on PRs/pushes to `dev`. Job name: `lint-and-test`
+- **ci.yml** — Runs ruff + pytest on PRs/pushes to `dev`. Jobs: `lint-and-test`, `secrets-scan` (gitleaks, requires `GITLEAKS_LICENSE` repo secret)
 - **daily-news.yml** — Scheduled at 11:00 UTC (5 AM Central), creates `daily-news/YYYY-MM-DD` branch, generates news, and opens a PR (manual merge required)
 - **dependabot-auto-merge.yml** — Auto-merges Dependabot patch/minor PRs. Triggers on all PRs but skips non-Dependabot actors via job condition
 
@@ -73,7 +74,8 @@ Feeds are untrusted input. Defenses are layered across the pipeline:
 - **SSRF** (`rss_fetcher.py`): `_is_private_host()` rejects private/reserved IPs (IPv4 + IPv6), trailing dots, zone IDs, bare integers, `file://` schemes
 - **Prompt injection** (`summarizer.py`): Articles serialized as JSON (not XML tags) to avoid prompt boundary confusion
 - **Config validation** (`config.py`): Feed URLs validated at load time (HTTPS, no private hosts). Env vars stripped of whitespace
-- **XSS** (`markdown_generator.py`, `rss_fetcher.py`): bleach strips HTML; `javascript:`, `data:`, `vbscript:` URI schemes neutralized (case-insensitive)
+- **XSS** (`markdown_generator.py`, `rss_fetcher.py`): nh3 strips HTML; `javascript:`, `data:`, `vbscript:` URI schemes neutralized (case-insensitive)
+- **Secrets scanning** (`ci.yml`): gitleaks scans full git history on every PR/push
 - **XXE**: feedparser does not process external entities
 - **Pre-commit hook** (`scripts/pre-commit`): Rejects commits with empty or placeholder git email. Install with `make install-hooks`
 

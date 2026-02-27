@@ -9,9 +9,9 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 from urllib.parse import urlparse
 
-import bleach
 import feedparser
 import httpx
+import nh3
 from dateutil import parser as date_parser
 
 from .config import (
@@ -98,12 +98,14 @@ async def _fetch_feed_async(url: str, client: httpx.AsyncClient) -> list[Article
         logger.warning("Invalid URL skipped: %s", url)
         return []
 
+    last_error: httpx.HTTPError | None = None
     for attempt in range(FETCH_MAX_RETRIES + 1):
         try:
             response = await client.get(url, timeout=REQUEST_TIMEOUT, follow_redirects=True)
             response.raise_for_status()
             return _parse_feed(response.text, url)
         except httpx.HTTPError as e:
+            last_error = e
             if attempt < FETCH_MAX_RETRIES:
                 wait = FETCH_RETRY_BACKOFF * (2**attempt)
                 logger.info(
@@ -114,16 +116,14 @@ async def _fetch_feed_async(url: str, client: httpx.AsyncClient) -> list[Article
                     wait,
                 )
                 await asyncio.sleep(wait)
-            else:
-                logger.warning(
-                    "Failed to fetch %s after %d attempts: %s",
-                    url,
-                    FETCH_MAX_RETRIES + 1,
-                    e,
-                )
-                return []
 
-    return []  # unreachable, but satisfies type checker
+    logger.warning(
+        "Failed to fetch %s after %d attempts: %s",
+        url,
+        FETCH_MAX_RETRIES + 1,
+        last_error,
+    )
+    return []
 
 
 def fetch_all_feeds(topic: str) -> list[Article]:
@@ -219,11 +219,11 @@ def _parse_date(entry: Any) -> datetime | None:
 
 
 def _sanitize(text: str) -> str:
-    """Sanitize text using bleach and remove emojis."""
+    """Sanitize text and remove emojis."""
     if not text:
         return ""
-    # Remove HTML tags using bleach, keeping the text content
-    sanitized_text = bleach.clean(text, tags=[], strip=True)
+    # Remove HTML tags, keeping the text content
+    sanitized_text = nh3.clean(text, tags=set())
     # Remove emojis
     sanitized_text = EMOJI_PATTERN.sub("", sanitized_text)
     # Normalize whitespace

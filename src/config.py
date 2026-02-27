@@ -7,43 +7,9 @@ from pathlib import Path
 from typing import Final
 from urllib.parse import urlparse
 
-from .exceptions import SummarizationError
+from .exceptions import NewsAggregatorError, SummarizationError
 
 logger = logging.getLogger(__name__)
-
-# --- Default topics & sources (used when feeds.toml is absent) ---
-_DEFAULT_FEEDS: Final[dict[str, list[str]]] = {
-    "ai": [
-        "https://news.mit.edu/rss/topic/artificial-intelligence2",
-        "https://bair.berkeley.edu/blog/feed.xml",
-        "https://openai.com/blog/rss.xml",
-        "https://blog.google/technology/ai/rss/",
-        "https://huggingface.co/blog/feed.xml",
-        "https://thegradient.pub/rss/",
-        "https://www.marktechpost.com/feed/",
-        "https://syncedreview.com/feed/",
-        "https://www.artificialintelligence-news.com/feed/",
-        "https://venturebeat.com/category/ai/feed/",
-        "https://techcrunch.com/category/artificial-intelligence/feed/",
-        "https://www.wired.com/feed/tag/ai/latest/rss",
-        "https://feeds.arstechnica.com/arstechnica/technology-lab",
-        "https://feed.infoq.com/ai-ml-data-eng/",
-        "https://thenewstack.io/ai/feed/",
-        "https://pub.towardsai.net/feed",
-        "https://www.kdnuggets.com/feed",
-        "https://machinelearningmastery.com/feed/",
-    ],
-    "cricket": [
-        "https://www.espncricinfo.com/rss/content/story/feeds/0.xml",
-        "https://feeds.bbci.co.uk/sport/cricket/rss.xml",
-        "https://cricketweb.net/feed",
-    ],
-}
-
-_DEFAULT_TOPIC_LINE_LIMITS: Final[dict[str, tuple[int, int]]] = {
-    "ai": (100, 200),
-    "cricket": (20, 50),
-}
 
 FEEDS_CONFIG_PATH: Final[Path] = Path(__file__).parent.parent / "feeds.toml"
 
@@ -60,10 +26,9 @@ def _validate_feed_url(url: str) -> bool:
 def _load_feeds_config(
     config_path: Path = FEEDS_CONFIG_PATH,
 ) -> tuple[dict[str, list[str]], dict[str, tuple[int, int]]]:
-    """Load feeds from TOML config, falling back to built-in defaults."""
+    """Load feeds from TOML config. Raises NewsAggregatorError if missing or empty."""
     if not config_path.exists():
-        logger.info("No feeds.toml found, using built-in defaults")
-        return dict(_DEFAULT_FEEDS), dict(_DEFAULT_TOPIC_LINE_LIMITS)
+        raise NewsAggregatorError(f"feeds.toml not found at {config_path}")
 
     with open(config_path, "rb") as f:
         data = tomllib.load(f)
@@ -87,17 +52,23 @@ def _load_feeds_config(
             continue
         feeds[name] = valid_urls
         if "line_limits" in topic and len(topic["line_limits"]) == 2:
-            limits[name] = (topic["line_limits"][0], topic["line_limits"][1])
+            min_val, max_val = topic["line_limits"]
+            if isinstance(min_val, int) and isinstance(max_val, int):
+                limits[name] = (min_val, max_val)
+            else:
+                logger.warning("Topic '%s' line_limits must be integers, ignoring", name)
 
     if not feeds:
-        logger.warning("No valid topics in feeds.toml, falling back to defaults")
-        return dict(_DEFAULT_FEEDS), dict(_DEFAULT_TOPIC_LINE_LIMITS)
+        raise NewsAggregatorError(f"No valid topics found in {config_path}")
 
     return feeds, limits
 
 
 FEEDS, TOPIC_LINE_LIMITS = _load_feeds_config()
 DEFAULT_LINE_LIMITS: Final[tuple[int, int]] = (50, 100)
+
+# --- Deduplication ---
+DEDUP_SIMILARITY_THRESHOLD: Final[float] = 0.55
 
 # --- Fetch ---
 REQUEST_TIMEOUT: Final[int] = 30

@@ -83,6 +83,14 @@ Remember: Write {min_lines}-{max_lines} lines. Be comprehensive, not brief."""
         content = response.choices[0].message.content or ""
         line_count = len(content.strip().split("\n"))
         logger.info("Generated %d lines for %s topic", line_count, topic)
+        if line_count < min_lines or line_count > max_lines:
+            logger.warning(
+                "Line count %d outside expected range [%d, %d] for %s topic",
+                line_count,
+                min_lines,
+                max_lines,
+                topic,
+            )
         return content
     except Exception as e:
         logger.error("Summarization failed: %s", type(e).__name__)

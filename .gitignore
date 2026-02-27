@@ -27,7 +27,6 @@ htmlcov/
 
 # UV
 .uv/
-uv.lock
 
 # Output (force-added in CI workflow with git add -f)
 daily-news/

@@ -12,7 +12,7 @@ dependencies = [
     "click==8.3.1",
     "python-dotenv==1.0.1",
     "httpx==0.28.1",
-    "bleach==6.3.0",
+    "nh3==0.3.3",
     "python-dateutil==2.9.0.post0",
 ]
 
@@ -29,7 +29,6 @@ dev = [
     "pytest-cov==6.0.0",
     "ruff==0.15.2",
     "mypy==1.15.0",
-    "types-bleach==6.3.0.20251115",
     "types-python-dateutil==2.9.0.20241206",
     "pip-audit==2.7.3",
 ]

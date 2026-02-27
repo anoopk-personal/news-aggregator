@@ -10,11 +10,18 @@ from src.rss_fetcher import Article
 
 
 @patch("src.cli.fetch_all_feeds")
+@patch("src.cli.deduplicate_articles")
 @patch("src.cli.summarize_articles")
 @patch("src.cli.write_markdown")
-def test_cli_end_to_end(mock_write_markdown, mock_summarize_articles, mock_fetch_all_feeds):
+def test_cli_end_to_end(
+    mock_write_markdown,
+    mock_summarize_articles,
+    mock_deduplicate,
+    mock_fetch_all_feeds,
+):
     """Test the CLI end-to-end with mocks."""
     mock_fetch_all_feeds.return_value = ["article1", "article2"]
+    mock_deduplicate.return_value = ["article1", "article2"]
     mock_summarize_articles.return_value = "Test summary"
 
     runner = CliRunner()
@@ -27,6 +34,7 @@ def test_cli_end_to_end(mock_write_markdown, mock_summarize_articles, mock_fetch
     assert "Saved to" in result.output
 
     mock_fetch_all_feeds.assert_called_once_with("ai")
+    mock_deduplicate.assert_called_once_with(["article1", "article2"])
     mock_summarize_articles.assert_called_once_with(["article1", "article2"], "ai")
     mock_write_markdown.assert_called_once()
 
@@ -49,9 +57,12 @@ def test_cli_no_articles(mock_write_markdown, mock_summarize_articles, mock_fetc
 
 
 @patch("src.cli.fetch_all_feeds")
+@patch("src.cli.deduplicate_articles")
 @patch("src.cli.summarize_articles")
 @patch("src.cli.write_markdown")
-def test_cli_skip_summarize(mock_write_markdown, mock_summarize_articles, mock_fetch_all_feeds):
+def test_cli_skip_summarize(
+    mock_write_markdown, mock_summarize_articles, mock_deduplicate, mock_fetch_all_feeds
+):
     """Test --skip-summarize skips LLM and formats articles as markdown."""
     articles = [
         Article(
@@ -63,6 +74,7 @@ def test_cli_skip_summarize(mock_write_markdown, mock_summarize_articles, mock_f
         ),
     ]
     mock_fetch_all_feeds.return_value = articles
+    mock_deduplicate.return_value = articles
 
     runner = CliRunner()
     result = runner.invoke(main, ["--topic", "ai", "--skip-summarize"])
@@ -103,10 +115,11 @@ def test_cli_skip_summarize_no_articles(
 
 
 @patch("src.cli.fetch_all_feeds")
+@patch("src.cli.deduplicate_articles")
 @patch("src.cli.summarize_articles")
 @patch("src.cli.write_markdown")
 def test_cli_skip_summarize_no_summary_field(
-    mock_write_markdown, mock_summarize_articles, mock_fetch_all_feeds
+    mock_write_markdown, mock_summarize_articles, mock_deduplicate, mock_fetch_all_feeds
 ):
     """Test --skip-summarize handles articles with empty summary."""
     articles = [
@@ -118,6 +131,7 @@ def test_cli_skip_summarize_no_summary_field(
         ),
     ]
     mock_fetch_all_feeds.return_value = articles
+    mock_deduplicate.return_value = articles
 
     runner = CliRunner()
     result = runner.invoke(main, ["--topic", "cricket", "--skip-summarize"])
@@ -133,10 +147,11 @@ def test_cli_skip_summarize_no_summary_field(
 
 
 @patch("src.cli.fetch_all_feeds")
+@patch("src.cli.deduplicate_articles")
 @patch("src.cli.summarize_articles")
 @patch("src.cli.write_markdown")
 def test_cli_dry_run_prints_to_stdout(
-    mock_write_markdown, mock_summarize_articles, mock_fetch_all_feeds
+    mock_write_markdown, mock_summarize_articles, mock_deduplicate, mock_fetch_all_feeds
 ):
     """Test --dry-run prints digest to stdout and does not write a file."""
     articles = [
@@ -149,6 +164,7 @@ def test_cli_dry_run_prints_to_stdout(
         ),
     ]
     mock_fetch_all_feeds.return_value = articles
+    mock_deduplicate.return_value = articles
 
     runner = CliRunner()
     result = runner.invoke(main, ["--topic", "ai", "--skip-summarize", "--dry-run"])
@@ -175,3 +191,32 @@ def test_cli_dry_run_no_articles(
     assert result.exit_code == 0
     assert "No articles found." in result.output
     mock_write_markdown.assert_not_called()
+
+
+@patch("src.cli.fetch_all_feeds")
+@patch("src.cli.deduplicate_articles")
+@patch("src.cli.summarize_articles")
+@patch("src.cli.write_markdown")
+def test_cli_skip_dedup(
+    mock_write_markdown, mock_summarize_articles, mock_deduplicate, mock_fetch_all_feeds
+):
+    """Test --skip-dedup bypasses deduplication."""
+    articles = [
+        Article(
+            title="Test Article",
+            link="https://example.com/1",
+            summary="A test summary",
+            source="Example",
+            published=datetime.now(tz=UTC),
+        ),
+    ]
+    mock_fetch_all_feeds.return_value = articles
+    mock_summarize_articles.return_value = "Test summary"
+
+    runner = CliRunner()
+    result = runner.invoke(main, ["--topic", "ai", "--skip-dedup"])
+
+    assert result.exit_code == 0
+    mock_deduplicate.assert_not_called()
+    mock_summarize_articles.assert_called_once_with(articles, "ai")
+    mock_write_markdown.assert_called_once()

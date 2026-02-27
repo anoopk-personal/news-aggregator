@@ -4,7 +4,7 @@ import re
 from datetime import UTC, datetime
 from pathlib import Path
 
-import bleach
+import nh3
 
 from .config import DANGEROUS_LINK_SCHEMES, OUTPUT_DATE_FORMAT, OUTPUT_FILENAME_PREFIX
 from .utils import EMOJI_PATTERN
@@ -49,7 +49,7 @@ def _sanitize_markdown(text: str) -> str:
     # Remove emojis
     sanitized = EMOJI_PATTERN.sub("", text)
     # Strip embedded HTML (XSS vector)
-    sanitized = bleach.clean(sanitized, tags=[], strip=True)
+    sanitized = nh3.clean(sanitized, tags=set())
     # Neutralize dangerous URL schemes in markdown links (case-insensitive)
     sanitized = _DANGEROUS_LINK_RE.sub("](#", sanitized)
     return sanitized.strip()

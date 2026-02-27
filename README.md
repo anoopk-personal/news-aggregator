@@ -31,6 +31,7 @@ uv run get-news [OPTIONS]
   --topic TEXT        Required. ai, cricket, both, or any custom topic
   --output-dir PATH  Output directory (default: daily-news/)
   --skip-summarize   Bypass LLM, list raw articles
+  --skip-dedup       Skip article deduplication
   --dry-run          Print to stdout, don't write a file
 ```
 

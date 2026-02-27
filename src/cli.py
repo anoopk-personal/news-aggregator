@@ -7,6 +7,7 @@ import click
 from dotenv import load_dotenv
 
 from .config import CONTENT_SEPARATOR, DEFAULT_OUTPUT_DIR, FEEDS
+from .deduplicator import deduplicate_articles
 from .markdown_generator import get_output_path, write_markdown
 from .rss_fetcher import Article, fetch_all_feeds
 from .summarizer import summarize_articles
@@ -51,12 +52,24 @@ def _format_articles_as_markdown(articles: list[Article], topic: str) -> str:
     help="Skip LLM summarization and output raw articles as markdown",
 )
 @click.option(
+    "--skip-dedup",
+    is_flag=True,
+    default=False,
+    help="Skip article deduplication",
+)
+@click.option(
     "--dry-run",
     is_flag=True,
     default=False,
     help="Preview digest to stdout without writing a file",
 )
-def main(topic: str, output_dir: Path, skip_summarize: bool, dry_run: bool) -> None:
+def main(
+    topic: str,
+    output_dir: Path,
+    skip_summarize: bool,
+    skip_dedup: bool,
+    dry_run: bool,
+) -> None:
     """Fetch and summarize news for a given topic."""
     topics = list(FEEDS.keys()) if topic == "both" else [topic]
     all_summaries = []
@@ -66,6 +79,18 @@ def main(topic: str, output_dir: Path, skip_summarize: bool, dry_run: bool) -> N
         try:
             articles = fetch_all_feeds(t)
             click.echo(f"Found {len(articles)} articles")
+
+            if articles and not skip_dedup:
+                before_count = len(articles)
+                articles = deduplicate_articles(articles)
+                removed = before_count - len(articles)
+                if removed:
+                    logger.info(
+                        "Deduplicated %d articles to %d (%d duplicates removed)",
+                        before_count,
+                        len(articles),
+                        removed,
+                    )
 
             if articles:
                 if skip_summarize:
