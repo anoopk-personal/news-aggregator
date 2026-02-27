@@ -42,6 +42,25 @@ Run a single test: `uv run pytest tests/test_rss_fetcher.py::test_sanitize_strip
 - **exceptions.py** — `NewsAggregatorError` base, `SummarizationError` for LLM failures
 - **feeds.toml** — User-editable topic/feed configuration loaded by `config.py` at startup
 
+## daily-news/ Output Pattern
+
+The `daily-news/` directory is in `.gitignore` because local runs generate files there. In the GitHub Actions daily workflow (`daily-news.yml`), the generated markdown file is force-added with `git add -f daily-news/` so it appears in the PR diff. This lets the automated workflow commit generated output without polluting local development.
+
+## Dedup Threshold
+
+`DEDUP_SIMILARITY_THRESHOLD` (default: `0.55`) in `config.py` controls how aggressively the deduplicator merges articles. It is the minimum `difflib.SequenceMatcher` ratio for two articles to be considered duplicates.
+
+- **Lower** (e.g., 0.4) = more aggressive merging, fewer articles in output
+- **Higher** (e.g., 0.7) = more conservative, keeps articles that are only loosely related
+
+To test threshold changes without hitting the LLM or writing files:
+
+```bash
+uv run get-news ai --skip-summarize --dry-run
+```
+
+Review the console output to see which articles survive deduplication.
+
 ## Ruff Configuration
 
 Line length 100, double quotes, target py312. Lint rules: `E, F, I, W, UP, S, B` with `S101` ignored (allows assert in tests).

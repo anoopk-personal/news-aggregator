@@ -152,3 +152,123 @@ def test_normalize_text_strips_punctuation_and_case():
     assert _normalize_text("Hello, World!  How's it  going?") == "hello world hows it going"
     assert _normalize_text("ALL CAPS TEXT") == "all caps text"
     assert _normalize_text("") == ""
+
+
+# --- Large feed handling tests ---
+
+
+def test_deduplicate_large_cluster_keeps_best():
+    """12 near-identical articles from different sources collapse to a single result."""
+    articles = [
+        _make_article(
+            title="Major breakthrough in AI safety announced today",
+            link=f"https://source{i}.com/article",
+            summary=(
+                "Researchers announced a major breakthrough in AI safety. " + "Extra detail. " * i
+            ),
+            source=f"Source{i}",
+            published_hours_ago=1,
+        )
+        for i in range(12)
+    ]
+    result = deduplicate_articles(articles)
+    assert len(result) == 1
+    assert "Also covered by:" in result[0].summary
+
+
+def test_deduplicate_mixed_clusters_with_many_articles():
+    """25 articles: two clusters of 5 + 15 unique = 17 results."""
+    cluster_a = [
+        _make_article(
+            title="SpaceX launches new rocket to Mars",
+            link=f"https://space{i}.com/article",
+            summary=f"SpaceX successfully launched a new rocket to Mars today. {'More info. ' * i}",
+            source=f"SpaceNews{i}",
+            published_hours_ago=1,
+        )
+        for i in range(5)
+    ]
+    cluster_b = [
+        _make_article(
+            title="Apple releases new iPhone model with AI features",
+            link=f"https://tech{i}.com/article",
+            summary=f"Apple released a new iPhone model with AI features today. {'Details. ' * i}",
+            source=f"TechSite{i}",
+            published_hours_ago=2,
+        )
+        for i in range(5)
+    ]
+    unique_data = [
+        (
+            "Python 3.15 adds pattern guards",
+            "The Python team shipped version 3.15 with guard clauses.",
+        ),
+        (
+            "Rust foundation announces governance changes",
+            "The Rust foundation restructured its board today.",
+        ),
+        (
+            "EU passes comprehensive data privacy regulation",
+            "European parliament voted to adopt new data privacy rules.",
+        ),
+        (
+            "Tesla recalls 50000 vehicles over brake sensor",
+            "Tesla issued a voluntary recall for Model Y vehicles.",
+        ),
+        (
+            "Netflix reports record quarterly subscriber growth",
+            "Netflix added 19 million subscribers in Q4.",
+        ),
+        (
+            "Bitcoin reaches new all time high above 150k",
+            "Bitcoin surged past 150 thousand driven by ETF inflows.",
+        ),
+        (
+            "NASA confirms water ice on lunar surface",
+            "Artemis data confirms water ice in shadowed craters.",
+        ),
+        (
+            "DeepMind achieves protein folding milestone",
+            "AlphaFold 4 predicts protein interactions accurately.",
+        ),
+        (
+            "Amazon opens fully automated warehouse",
+            "The Texas facility uses robots from receiving to shipping.",
+        ),
+        (
+            "CRISPR therapy approved for sickle cell",
+            "FDA granted full approval for gene editing treatment.",
+        ),
+        (
+            "India launches reusable space vehicle",
+            "ISRO tested its pushpak vehicle with autonomous landing.",
+        ),
+        (
+            "GitHub introduces AI code review tool",
+            "Copilot review analyzes pull requests inline.",
+        ),
+        (
+            "Scientists report record ocean temperatures",
+            "Sea surface temps exceeded records for eighth month.",
+        ),
+        (
+            "Samsung unveils foldable laptop at CES",
+            "The 17 inch OLED display folds in half under one kg.",
+        ),
+        (
+            "WHO declares mpox outbreak contained",
+            "WHO downgraded its mpox emergency classification.",
+        ),
+    ]
+    unique = [
+        _make_article(
+            title=title,
+            link=f"https://unique{i}.com/article",
+            summary=summary,
+            source=f"UniqueSrc{i}",
+            published_hours_ago=3,
+        )
+        for i, (title, summary) in enumerate(unique_data)
+    ]
+    result = deduplicate_articles(cluster_a + cluster_b + unique)
+    assert len(result) == 17

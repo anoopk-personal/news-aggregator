@@ -234,6 +234,112 @@ async def test_fetch_feed_async_gives_up_after_max_retries(mock_sleep):
     assert mock_sleep.call_count == 2
 
 
+# --- Network error subclass retry tests ---
+
+
+@pytest.mark.asyncio
+@patch("src.rss_fetcher.asyncio.sleep", new_callable=AsyncMock)
+async def test_fetch_feed_async_retries_on_timeout_exception(mock_sleep):
+    """Retry once on TimeoutException, then succeed on second attempt."""
+    recent_date = datetime.now(UTC) - timedelta(hours=1)
+    date_str = recent_date.strftime("%a, %d %b %Y %H:%M:%S GMT")
+
+    success_response = MagicMock()
+    success_response.raise_for_status = MagicMock()
+    success_response.text = FEED_XML.format(date_str=date_str)
+
+    client = AsyncMock(spec=httpx.AsyncClient)
+    client.get = AsyncMock(
+        side_effect=[httpx.TimeoutException("read timed out"), success_response],
+    )
+
+    articles = await _fetch_feed_async("https://example.com/feed", client)
+    assert len(articles) == 1
+    assert articles[0].title == "Retry Article"
+    assert client.get.call_count == 2
+    mock_sleep.assert_called_once()
+
+
+@pytest.mark.asyncio
+@patch("src.rss_fetcher.asyncio.sleep", new_callable=AsyncMock)
+async def test_fetch_feed_async_retries_on_connect_error(mock_sleep):
+    """Retry once on ConnectError, then succeed on second attempt."""
+    recent_date = datetime.now(UTC) - timedelta(hours=1)
+    date_str = recent_date.strftime("%a, %d %b %Y %H:%M:%S GMT")
+
+    success_response = MagicMock()
+    success_response.raise_for_status = MagicMock()
+    success_response.text = FEED_XML.format(date_str=date_str)
+
+    client = AsyncMock(spec=httpx.AsyncClient)
+    client.get = AsyncMock(
+        side_effect=[httpx.ConnectError("connection refused"), success_response],
+    )
+
+    articles = await _fetch_feed_async("https://example.com/feed", client)
+    assert len(articles) == 1
+    assert articles[0].title == "Retry Article"
+    assert client.get.call_count == 2
+    mock_sleep.assert_called_once()
+
+
+@pytest.mark.asyncio
+@patch("src.rss_fetcher.asyncio.sleep", new_callable=AsyncMock)
+async def test_fetch_feed_async_retries_on_http_status_error(mock_sleep):
+    """Retry once on HTTPStatusError (503), then succeed on second attempt."""
+    recent_date = datetime.now(UTC) - timedelta(hours=1)
+    date_str = recent_date.strftime("%a, %d %b %Y %H:%M:%S GMT")
+
+    success_response = MagicMock()
+    success_response.raise_for_status = MagicMock()
+    success_response.text = FEED_XML.format(date_str=date_str)
+
+    error_request = httpx.Request("GET", "https://example.com/feed")
+    error_response = httpx.Response(503, request=error_request)
+
+    status_error = httpx.HTTPStatusError(
+        "503 Service Unavailable",
+        request=error_request,
+        response=error_response,
+    )
+    client = AsyncMock(spec=httpx.AsyncClient)
+    client.get = AsyncMock(
+        side_effect=[status_error, success_response],
+    )
+
+    articles = await _fetch_feed_async("https://example.com/feed", client)
+    assert len(articles) == 1
+    assert articles[0].title == "Retry Article"
+    assert client.get.call_count == 2
+    mock_sleep.assert_called_once()
+
+
+@pytest.mark.asyncio
+@patch("src.rss_fetcher.asyncio.sleep", new_callable=AsyncMock)
+async def test_fetch_feed_async_exhausts_retries_on_persistent_timeout(mock_sleep):
+    """Exhaust retries on persistent TimeoutException, return []."""
+    client = AsyncMock(spec=httpx.AsyncClient)
+    client.get = AsyncMock(side_effect=httpx.TimeoutException("read timed out"))
+
+    articles = await _fetch_feed_async("https://example.com/feed", client)
+    assert articles == []
+    assert client.get.call_count == 3
+    assert mock_sleep.call_count == 2
+
+
+@pytest.mark.asyncio
+@patch("src.rss_fetcher.asyncio.sleep", new_callable=AsyncMock)
+async def test_fetch_feed_async_exhausts_retries_on_persistent_connect_error(mock_sleep):
+    """Exhaust retries on persistent ConnectError, return []."""
+    client = AsyncMock(spec=httpx.AsyncClient)
+    client.get = AsyncMock(side_effect=httpx.ConnectError("connection refused"))
+
+    articles = await _fetch_feed_async("https://example.com/feed", client)
+    assert articles == []
+    assert client.get.call_count == 3
+    assert mock_sleep.call_count == 2
+
+
 # --- Helper for _parse_feed tests ---
 
 
@@ -418,6 +524,40 @@ def test_parse_feed_falls_back_to_hostname_for_source():
     articles = _parse_feed(xml, "https://news.example.com/feed")
     assert len(articles) == 1
     assert articles[0].source == "news.example.com"
+
+
+# --- Large feed handling tests ---
+
+
+def test_parse_feed_caps_then_filters_by_age():
+    """30 entries (20 recent + 10 old): cap applies first, then age filter yields 20."""
+    recent_date = datetime.now(UTC) - timedelta(hours=1)
+    old_date = datetime.now(UTC) - timedelta(hours=96)
+    recent_str = recent_date.strftime("%a, %d %b %Y %H:%M:%S GMT")
+    old_str = old_date.strftime("%a, %d %b %Y %H:%M:%S GMT")
+
+    # Build 20 recent entries followed by 10 old entries
+    entries = [
+        {
+            "title": f"Recent Article {i}",
+            "link": f"https://example.com/recent-{i}",
+            "description": f"Recent summary {i}",
+            "pubDate": recent_str,
+        }
+        for i in range(20)
+    ] + [
+        {
+            "title": f"Old Article {i}",
+            "link": f"https://example.com/old-{i}",
+            "description": f"Old summary {i}",
+            "pubDate": old_str,
+        }
+        for i in range(10)
+    ]
+    xml = _build_rss_xml(entries)
+    articles = _parse_feed(xml, "https://example.com/feed")
+    assert len(articles) == 20
+    assert all("Recent" in a.title for a in articles)
 
 
 # --- fetch_all_feeds tests ---

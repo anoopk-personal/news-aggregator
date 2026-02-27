@@ -1,9 +1,12 @@
 """Tests for markdown generator module."""
 
+import os
 from datetime import datetime
 from pathlib import Path
 
-from src.markdown_generator import _sanitize_markdown, get_output_path
+import pytest
+
+from src.markdown_generator import _sanitize_markdown, get_output_path, write_markdown
 
 
 def test_get_output_path_creates_dated_filename(tmp_path: Path):
@@ -78,3 +81,35 @@ def test_sanitize_markdown_neutralizes_vbscript():
     result = _sanitize_markdown(text)
     assert "vbscript:" not in result
     assert "](#" in result
+
+
+# --- write_markdown tests ---
+
+
+def test_write_markdown_success(tmp_path: Path):
+    """write_markdown writes sanitized content and can be read back."""
+    output_path = tmp_path / "output.md"
+    write_markdown("# Hello World", output_path)
+    assert output_path.exists()
+    content = output_path.read_text(encoding="utf-8")
+    assert "# Hello World" in content
+
+
+def test_write_markdown_raises_on_permission_error(tmp_path: Path):
+    """write_markdown propagates PermissionError for read-only directory."""
+    read_only_dir = tmp_path / "readonly"
+    read_only_dir.mkdir()
+    os.chmod(read_only_dir, 0o444)
+    try:
+        output_path = read_only_dir / "output.md"
+        with pytest.raises(PermissionError):
+            write_markdown("content", output_path)
+    finally:
+        os.chmod(read_only_dir, 0o755)  # noqa: S103
+
+
+def test_write_markdown_raises_on_nonexistent_parent(tmp_path: Path):
+    """write_markdown propagates FileNotFoundError for missing parent directory."""
+    output_path = tmp_path / "nonexistent" / "deeply" / "nested" / "output.md"
+    with pytest.raises(FileNotFoundError):
+        write_markdown("content", output_path)
