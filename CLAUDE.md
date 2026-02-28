@@ -56,7 +56,7 @@ The `daily-news/` directory is in `.gitignore` because local runs generate files
 To test threshold changes without hitting the LLM or writing files:
 
 ```bash
-uv run get-news ai --skip-summarize --dry-run
+uv run get-news --topic ai --skip-summarize --dry-run
 ```
 
 Review the console output to see which articles survive deduplication.
@@ -82,7 +82,7 @@ Daily-news PRs require manual merge. Dependabot PRs auto-merge (squash) once CI 
 
 ## GitHub Actions
 
-- **ci.yml** — Runs ruff + pytest on PRs/pushes to `dev`. Jobs: `lint-and-test`, `secrets-scan` (gitleaks, requires `GITLEAKS_LICENSE` repo secret)
+- **ci.yml** -- Runs lint, format check, type check, dependency audit, and tests on PRs/pushes to `dev`. Jobs: `lint-and-test`, `secrets-scan` (gitleaks, requires `GITLEAKS_LICENSE` repo secret)
 - **daily-news.yml** — Scheduled at 11:00 UTC (5 AM Central), creates `daily-news/YYYY-MM-DD` branch, generates news, and opens a PR (manual merge required)
 - **dependabot-auto-merge.yml** — Auto-merges Dependabot patch/minor PRs. Triggers on all PRs but skips non-Dependabot actors via job condition
 
