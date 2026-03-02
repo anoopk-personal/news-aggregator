@@ -33,3 +33,14 @@ daily-news/
 
 # OS
 .DS_Store
+
+# Additional security patterns
+.env.local
+.env.production
+.env.staging
+*.pem
+*.key
+*.p12
+*.pfx
+node_modules/
+*.pyc
