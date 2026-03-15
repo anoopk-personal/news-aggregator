@@ -147,3 +147,32 @@ feeds = ["ftp://nope.com", "javascript:alert(1)"]
     feeds, _ = _load_feeds_config(config)
     assert "good" in feeds
     assert "bad" not in feeds
+
+
+def test_load_feeds_rejects_http_urls(tmp_path: Path):
+    """Test that HTTP (non-HTTPS) feed URLs are filtered out."""
+    config = tmp_path / "feeds.toml"
+    config.write_text(
+        """
+[topics.mixed]
+feeds = ["https://secure.com/feed", "http://insecure.com/feed"]
+"""
+    )
+    feeds, _ = _load_feeds_config(config)
+    assert "mixed" in feeds
+    assert feeds["mixed"] == ["https://secure.com/feed"]
+
+
+def test_load_feeds_ignores_inverted_line_limits(tmp_path: Path):
+    """Test that line_limits with min > max are ignored."""
+    config = tmp_path / "feeds.toml"
+    config.write_text(
+        """
+[topics.test]
+feeds = ["https://example.com/feed"]
+line_limits = [200, 50]
+"""
+    )
+    feeds, limits = _load_feeds_config(config)
+    assert "test" in feeds
+    assert "test" not in limits

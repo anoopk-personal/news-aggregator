@@ -8,6 +8,7 @@ from dotenv import load_dotenv
 
 from .config import CONTENT_SEPARATOR, DEFAULT_OUTPUT_DIR, FEEDS
 from .deduplicator import deduplicate_articles
+from .exceptions import NewsAggregatorError, SummarizationError
 from .markdown_generator import get_output_path, write_markdown
 from .rss_fetcher import Article, fetch_all_feeds
 from .summarizer import summarize_articles
@@ -99,7 +100,7 @@ def main(
                     click.echo("Summarizing...")
                     summary = summarize_articles(articles, t)
                 all_summaries.append(summary)
-        except Exception as e:
+        except (NewsAggregatorError, SummarizationError) as e:
             logger.error("Error fetching %s: %s", t, e)
             continue
 

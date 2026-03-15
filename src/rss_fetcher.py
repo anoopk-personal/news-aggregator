@@ -6,7 +6,7 @@ import logging
 import re
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
-from typing import Any
+from typing import Any, Final
 from urllib.parse import urlparse
 
 import feedparser
@@ -30,6 +30,8 @@ from .utils import EMOJI_PATTERN
 
 logger = logging.getLogger(__name__)
 
+_MAX_REDIRECTS: Final[int] = 10
+
 
 @dataclass
 class Article:
@@ -42,8 +44,8 @@ class Article:
     published: datetime | None = None
 
 
-def _is_private_host(hostname: str) -> bool:
-    """Check if a hostname is a private/reserved IP or localhost."""
+def _is_non_routable_host(hostname: str) -> bool:
+    """Check if a hostname is a non-globally-routable IP or localhost."""
     if not hostname:
         return True
     hostname = hostname.rstrip(".")
@@ -53,12 +55,20 @@ def _is_private_host(hostname: str) -> bool:
     if "%" in hostname:
         hostname = hostname.split("%")[0]
     try:
-        return ipaddress.ip_address(hostname).is_private
+        return not ipaddress.ip_address(hostname).is_global
     except ValueError:
         pass
-    # Bare integers (e.g. "0") are treated as 0.0.0.0 by most network stacks
+    # Bare integers, hex (0x7f000001), and C-style octal (017700000001) are resolved
+    # as IPs by glibc on Linux. Python's int(x, 0) handles hex/0o-octal/decimal but
+    # not C-style octal (leading zero without 'o'), so we detect that separately.
     try:
-        return ipaddress.ip_address(int(hostname)).is_private
+        if hostname.startswith(("0x", "0X")):
+            numeric = int(hostname, 16)
+        elif len(hostname) > 1 and hostname[0] == "0" and hostname.isdigit():
+            numeric = int(hostname, 8)
+        else:
+            numeric = int(hostname)
+        return not ipaddress.ip_address(numeric).is_global
     except (ValueError, OverflowError):
         return False  # regular domain name, allow it
 
@@ -69,11 +79,24 @@ def _is_valid_url(url: str) -> bool:
         parsed = urlparse(url)
         if parsed.scheme not in ALLOWED_URL_SCHEMES or not parsed.netloc:
             return False
-        if _is_private_host(parsed.hostname or ""):
+        if _is_non_routable_host(parsed.hostname or ""):
             return False
         return True
     except (ValueError, AttributeError):
         return False
+
+
+def _validate_redirect(current_url: str, response: httpx.Response) -> str | None:
+    """Validate a redirect response. Returns the target URL or None if blocked."""
+    location: str = response.headers.get("location", "")
+    if not _is_valid_url(location):
+        logger.warning(
+            "Redirect to invalid URL blocked: %s -> %s",
+            current_url,
+            location,
+        )
+        return None
+    return location
 
 
 def fetch_feed(url: str) -> list[Article]:
@@ -83,13 +106,22 @@ def fetch_feed(url: str) -> list[Article]:
         return []
 
     try:
-        response = httpx.get(url, timeout=REQUEST_TIMEOUT, follow_redirects=True)
-        response.raise_for_status()
+        current_url = url
+        for _ in range(_MAX_REDIRECTS):
+            response = httpx.get(current_url, timeout=REQUEST_TIMEOUT, follow_redirects=False)
+            if response.is_redirect:
+                target = _validate_redirect(current_url, response)
+                if target is None:
+                    return []
+                current_url = target
+                continue
+            response.raise_for_status()
+            return _parse_feed(response.text, url)
+        logger.warning("Too many redirects for %s", url)
+        return []
     except httpx.HTTPError as e:
         logger.warning("Failed to fetch %s: %s", url, e)
         return []
-
-    return _parse_feed(response.text, url)
 
 
 async def _fetch_feed_async(url: str, client: httpx.AsyncClient) -> list[Article]:
@@ -101,21 +133,40 @@ async def _fetch_feed_async(url: str, client: httpx.AsyncClient) -> list[Article
     last_error: httpx.HTTPError | None = None
     for attempt in range(FETCH_MAX_RETRIES + 1):
         try:
-            response = await client.get(url, timeout=REQUEST_TIMEOUT, follow_redirects=True)
-            response.raise_for_status()
-            return _parse_feed(response.text, url)
+            current_url = url
+            for _ in range(_MAX_REDIRECTS):
+                response = await client.get(
+                    current_url,
+                    timeout=REQUEST_TIMEOUT,
+                    follow_redirects=False,
+                )
+                if response.is_redirect:
+                    target = _validate_redirect(current_url, response)
+                    if target is None:
+                        return []
+                    current_url = target
+                    continue
+                response.raise_for_status()
+                return _parse_feed(response.text, url)
+            logger.warning("Too many redirects for %s", url)
+            return []
+        except httpx.HTTPStatusError as e:
+            last_error = e
+            if 400 <= e.response.status_code < 500:
+                logger.warning("Non-retryable %d for %s: %s", e.response.status_code, url, e)
+                break
         except httpx.HTTPError as e:
             last_error = e
-            if attempt < FETCH_MAX_RETRIES:
-                wait = FETCH_RETRY_BACKOFF * (2**attempt)
-                logger.info(
-                    "Retry %d/%d for %s in %.1fs",
-                    attempt + 1,
-                    FETCH_MAX_RETRIES,
-                    url,
-                    wait,
-                )
-                await asyncio.sleep(wait)
+        if last_error and attempt < FETCH_MAX_RETRIES:
+            wait = FETCH_RETRY_BACKOFF * (2**attempt)
+            logger.info(
+                "Retry %d/%d for %s in %.1fs",
+                attempt + 1,
+                FETCH_MAX_RETRIES,
+                url,
+                wait,
+            )
+            await asyncio.sleep(wait)
 
     logger.warning(
         "Failed to fetch %s after %d attempts: %s",

@@ -26,7 +26,7 @@ make install-hooks  # install git pre-commit hook (email validation)
 ```
 
 Run a single test file: `uv run pytest tests/test_rss_fetcher.py -v`
-Run a single test: `uv run pytest tests/test_rss_fetcher.py::test_sanitize_strips_html -v`
+Run a single test: `uv run pytest tests/test_rss_fetcher.py::test_sanitize_removes_html_tags -v`
 
 ## Architecture
 
@@ -36,7 +36,7 @@ Run a single test: `uv run pytest tests/test_rss_fetcher.py::test_sanitize_strip
 - **config.py** — Loads topics/feeds from `feeds.toml` via `_load_feeds_config()` (raises `NewsAggregatorError` if missing). All other constants centralized here (timeouts, retry settings, line limits, dedup threshold, LLM model). No magic numbers elsewhere
 - **deduplicator.py** — `deduplicate_articles()` groups near-duplicate articles using `difflib.SequenceMatcher` similarity (threshold: `DEDUP_SIMILARITY_THRESHOLD`). Single-linkage clustering keeps the article with the longest summary from each cluster and adds "Also covered by" attribution
 - **rss_fetcher.py** — `fetch_all_feeds()` uses `asyncio` + `httpx.AsyncClient` for concurrent fetching with automatic retry (exponential backoff). `Article` dataclass holds parsed data. Filters to last 72 hours, max 25 articles/feed
-- **summarizer.py** — OpenAI SDK configured with LiteLLM `base_url`. Topic-specific line limits (AI: 100-200, Cricket: 20-50)
+- **summarizer.py** — OpenAI SDK configured with LiteLLM `base_url`. Uses topic-specific line limits from `feeds.toml`, defaulting to (50, 100)
 - **markdown_generator.py** — Writes `news-MM-DD-YY.md` to `daily-news/`, duplicates get `(2)` suffix
 - **utils.py** — Shared `EMOJI_PATTERN` regex used by both fetcher and markdown generator
 - **exceptions.py** — `NewsAggregatorError` base, `SummarizationError` for LLM failures
@@ -90,7 +90,7 @@ Daily-news PRs require manual merge. Dependabot PRs auto-merge (squash) once CI 
 
 Feeds are untrusted input. Defenses are layered across the pipeline:
 
-- **SSRF** (`rss_fetcher.py`): `_is_private_host()` rejects private/reserved IPs (IPv4 + IPv6), trailing dots, zone IDs, bare integers, `file://` schemes
+- **SSRF** (`rss_fetcher.py`): Two-layer defense: (1) pre-flight `_is_valid_url()` using `_is_non_routable_host()` with `not is_global` (covers private, loopback, link-local, CGN/RFC 6598, documentation, and benchmarking ranges), (2) manual redirect following with `_is_valid_url()` validation on each hop (prevents 302-to-private-IP bypass). HTTPS-only scheme enforcement for feed URLs. Also rejects trailing dots, zone IDs, bare integers (hex/octal/decimal), `file://` schemes
 - **Prompt injection** (`summarizer.py`): Articles serialized as JSON (not XML tags) to avoid prompt boundary confusion
 - **Config validation** (`config.py`): Feed URLs validated at load time (HTTPS, no private hosts). Env vars stripped of whitespace
 - **XSS** (`markdown_generator.py`, `rss_fetcher.py`): nh3 strips HTML; `javascript:`, `data:`, `vbscript:` URI schemes neutralized (case-insensitive)

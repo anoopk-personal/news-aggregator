@@ -39,9 +39,12 @@ def test_sanitize_removes_script_tags():
 
 def test_parse_date_success():
     """Test that valid date strings are parsed correctly."""
-    entry = {"published": "Tue, 10 Feb 2026 14:00:00 GMT"}
-    expected_date = datetime(2026, 2, 10, 14, 0, 0, tzinfo=UTC)
-    assert _parse_date(entry) == expected_date
+    recent = datetime.now(UTC) - timedelta(hours=2)
+    date_str = recent.strftime("%a, %d %b %Y %H:%M:%S GMT")
+    entry = {"published": date_str}
+    result = _parse_date(entry)
+    assert result is not None
+    assert abs((result - recent).total_seconds()) < 2
 
 
 def test_parse_date_no_date():
@@ -80,64 +83,49 @@ def test_article_with_published_date():
     assert article.published == pub_date
 
 
-def test_is_valid_url_accepts_https():
-    assert _is_valid_url("https://example.com/feed") is True
+@pytest.mark.parametrize(
+    "url",
+    [
+        "https://example.com/feed",
+        "https://news.example.com/rss.xml",
+    ],
+    ids=["https", "https-subdomain"],
+)
+def test_is_valid_url_accepts_valid_urls(url):
+    assert _is_valid_url(url) is True
 
 
-def test_is_valid_url_accepts_http():
-    assert _is_valid_url("http://example.com/feed") is True
-
-
-def test_is_valid_url_rejects_javascript():
-    assert _is_valid_url("javascript:alert('xss')") is False
-
-
-def test_is_valid_url_rejects_file():
-    assert _is_valid_url("file:///etc/passwd") is False
-
-
-def test_is_valid_url_rejects_empty():
-    assert _is_valid_url("") is False
-
-
-def test_is_valid_url_rejects_relative():
-    assert _is_valid_url("/path/to/resource") is False
-
-
-def test_is_valid_url_rejects_localhost():
-    assert _is_valid_url("http://localhost/feed") is False
-
-
-def test_is_valid_url_rejects_private_ip():
-    assert _is_valid_url("http://192.168.1.1/feed") is False
-
-
-def test_is_valid_url_rejects_loopback():
-    assert _is_valid_url("http://127.0.0.1/feed") is False
-
-
-def test_is_valid_url_rejects_localhost_trailing_dot():
-    assert _is_valid_url("http://localhost./feed") is False
-
-
-def test_is_valid_url_rejects_ipv6_loopback():
-    assert _is_valid_url("http://[::1]/feed") is False
-
-
-def test_is_valid_url_rejects_ipv6_private():
-    assert _is_valid_url("http://[fe80::1]/feed") is False
-
-
-def test_is_valid_url_rejects_ipv6_with_zone_id():
-    assert _is_valid_url("http://[fe80::1%25eth0]/feed") is False
-
-
-def test_is_valid_url_rejects_zero_ip():
-    assert _is_valid_url("http://0/feed") is False
-
-
-def test_is_valid_url_rejects_zero_quad():
-    assert _is_valid_url("http://0.0.0.0/feed") is False
+@pytest.mark.parametrize(
+    ("url", "reason"),
+    [
+        # Scheme violations
+        ("http://example.com/feed", "http-scheme"),
+        ("javascript:alert('xss')", "javascript-scheme"),
+        ("file:///etc/passwd", "file-scheme"),
+        ("", "empty-string"),
+        ("/path/to/resource", "relative-path"),
+        # Localhost and private ranges
+        ("http://localhost/feed", "localhost"),
+        ("http://localhost./feed", "localhost-trailing-dot"),
+        ("http://192.168.1.1/feed", "private-ip-192"),
+        ("http://127.0.0.1/feed", "loopback-ipv4"),
+        ("http://0.0.0.0/feed", "zero-quad"),
+        ("http://0/feed", "zero-ip"),
+        # IPv6
+        ("http://[::1]/feed", "ipv6-loopback"),
+        ("http://[fe80::1]/feed", "ipv6-link-local"),
+        ("http://[fe80::1%25eth0]/feed", "ipv6-zone-id"),
+        # Numeric encoding bypass attempts
+        ("http://0x7f000001/feed", "hex-loopback"),
+        ("http://017700000001/feed", "octal-loopback"),
+        ("http://0xC0A80101/feed", "hex-private-ip"),
+        # CGN range (RFC 6598)
+        ("https://100.64.0.1/feed", "cgn-range"),
+    ],
+    ids=lambda x: x if isinstance(x, str) else None,
+)
+def test_is_valid_url_rejects_invalid_urls(url, reason):
+    assert _is_valid_url(url) is False
 
 
 @patch("src.rss_fetcher.httpx.get")
@@ -148,6 +136,7 @@ def test_fetch_feed_success(mock_get):
     date_str = recent_date.strftime("%a, %d %b %Y %H:%M:%S GMT")
 
     mock_response = MagicMock()
+    mock_response.is_redirect = False
     mock_response.raise_for_status = MagicMock()
     mock_response.text = f"""
     <rss version="2.0">
@@ -206,6 +195,7 @@ async def test_fetch_feed_async_retries_on_transient_error(mock_sleep):
     date_str = recent_date.strftime("%a, %d %b %Y %H:%M:%S GMT")
 
     success_response = MagicMock()
+    success_response.is_redirect = False
     success_response.raise_for_status = MagicMock()
     success_response.text = FEED_XML.format(date_str=date_str)
 
@@ -245,6 +235,7 @@ async def test_fetch_feed_async_retries_on_timeout_exception(mock_sleep):
     date_str = recent_date.strftime("%a, %d %b %Y %H:%M:%S GMT")
 
     success_response = MagicMock()
+    success_response.is_redirect = False
     success_response.raise_for_status = MagicMock()
     success_response.text = FEED_XML.format(date_str=date_str)
 
@@ -268,6 +259,7 @@ async def test_fetch_feed_async_retries_on_connect_error(mock_sleep):
     date_str = recent_date.strftime("%a, %d %b %Y %H:%M:%S GMT")
 
     success_response = MagicMock()
+    success_response.is_redirect = False
     success_response.raise_for_status = MagicMock()
     success_response.text = FEED_XML.format(date_str=date_str)
 
@@ -291,6 +283,7 @@ async def test_fetch_feed_async_retries_on_http_status_error(mock_sleep):
     date_str = recent_date.strftime("%a, %d %b %Y %H:%M:%S GMT")
 
     success_response = MagicMock()
+    success_response.is_redirect = False
     success_response.raise_for_status = MagicMock()
     success_response.text = FEED_XML.format(date_str=date_str)
 
@@ -312,6 +305,48 @@ async def test_fetch_feed_async_retries_on_http_status_error(mock_sleep):
     assert articles[0].title == "Retry Article"
     assert client.get.call_count == 2
     mock_sleep.assert_called_once()
+
+
+@pytest.mark.asyncio
+@patch("src.rss_fetcher.asyncio.sleep", new_callable=AsyncMock)
+async def test_fetch_feed_async_no_retry_on_404(mock_sleep):
+    """404 is non-retryable: should fail immediately without retry."""
+    error_request = httpx.Request("GET", "https://example.com/feed")
+    error_response = httpx.Response(404, request=error_request)
+
+    status_error = httpx.HTTPStatusError(
+        "404 Not Found",
+        request=error_request,
+        response=error_response,
+    )
+    client = AsyncMock(spec=httpx.AsyncClient)
+    client.get = AsyncMock(side_effect=status_error)
+
+    articles = await _fetch_feed_async("https://example.com/feed", client)
+    assert articles == []
+    assert client.get.call_count == 1
+    mock_sleep.assert_not_called()
+
+
+@pytest.mark.asyncio
+@patch("src.rss_fetcher.asyncio.sleep", new_callable=AsyncMock)
+async def test_fetch_feed_async_no_retry_on_403(mock_sleep):
+    """403 is non-retryable: should fail immediately without retry."""
+    error_request = httpx.Request("GET", "https://example.com/feed")
+    error_response = httpx.Response(403, request=error_request)
+
+    status_error = httpx.HTTPStatusError(
+        "403 Forbidden",
+        request=error_request,
+        response=error_response,
+    )
+    client = AsyncMock(spec=httpx.AsyncClient)
+    client.get = AsyncMock(side_effect=status_error)
+
+    articles = await _fetch_feed_async("https://example.com/feed", client)
+    assert articles == []
+    assert client.get.call_count == 1
+    mock_sleep.assert_not_called()
 
 
 @pytest.mark.asyncio
@@ -606,3 +641,79 @@ def test_fetch_all_feeds_continues_when_some_feeds_fail(mock_fetch_async):
     assert len(articles) == 2
     assert articles[0].title == "From A"
     assert articles[1].title == "From C"
+
+
+# --- Redirect SSRF tests ---
+
+
+@patch("src.rss_fetcher.httpx.get")
+def test_fetch_feed_blocks_redirect_to_private_ip(mock_get):
+    """302 redirect to a private IP must be blocked."""
+    redirect_response = MagicMock()
+    redirect_response.is_redirect = True
+    redirect_response.headers = {"location": "http://192.168.1.1/"}
+    mock_get.return_value = redirect_response
+
+    articles = fetch_feed("https://example.com/feed")
+    assert articles == []
+
+
+@patch("src.rss_fetcher.httpx.get")
+def test_fetch_feed_follows_safe_redirect(mock_get):
+    """302 redirect to a valid HTTPS URL should be followed and return articles."""
+    recent_date = datetime.now(UTC) - timedelta(hours=1)
+    date_str = recent_date.strftime("%a, %d %b %Y %H:%M:%S GMT")
+
+    redirect_response = MagicMock()
+    redirect_response.is_redirect = True
+    redirect_response.headers = {"location": "https://cdn.example.com/feed.xml"}
+
+    final_response = MagicMock()
+    final_response.is_redirect = False
+    final_response.raise_for_status = MagicMock()
+    final_response.text = f"""
+    <rss version="2.0">
+    <channel>
+        <title>Redirected Feed</title>
+        <item>
+            <title>Redirected Article</title>
+            <link>https://example.com/article</link>
+            <description>Test</description>
+            <pubDate>{date_str}</pubDate>
+        </item>
+    </channel>
+    </rss>
+    """
+    mock_get.side_effect = [redirect_response, final_response]
+
+    articles = fetch_feed("https://example.com/feed")
+    assert len(articles) == 1
+    assert articles[0].title == "Redirected Article"
+
+
+@pytest.mark.asyncio
+@patch("src.rss_fetcher.asyncio.sleep", new_callable=AsyncMock)
+async def test_fetch_feed_async_blocks_redirect_to_private_ip(mock_sleep):
+    """Async path: 302 redirect to a private IP must be blocked."""
+    redirect_response = MagicMock()
+    redirect_response.is_redirect = True
+    redirect_response.headers = {"location": "http://169.254.169.254/latest/meta-data/"}
+
+    client = AsyncMock(spec=httpx.AsyncClient)
+    client.get = AsyncMock(return_value=redirect_response)
+
+    articles = await _fetch_feed_async("https://example.com/feed", client)
+    assert articles == []
+    mock_sleep.assert_not_called()
+
+
+@patch("src.rss_fetcher.httpx.get")
+def test_fetch_feed_blocks_excessive_redirects(mock_get):
+    """More than _MAX_REDIRECTS hops should return empty list."""
+    redirect_response = MagicMock()
+    redirect_response.is_redirect = True
+    redirect_response.headers = {"location": "https://example.com/feed"}
+    mock_get.return_value = redirect_response
+
+    articles = fetch_feed("https://example.com/feed")
+    assert articles == []

@@ -3,6 +3,8 @@
 import json
 import logging
 
+import httpx
+import openai
 from openai import OpenAI
 
 from .config import (
@@ -92,6 +94,6 @@ Remember: Write {min_lines}-{max_lines} lines. Be comprehensive, not brief."""
                 topic,
             )
         return content
-    except Exception as e:
+    except (openai.OpenAIError, httpx.HTTPError) as e:
         logger.error("Summarization failed: %s", type(e).__name__)
         raise SummarizationError("LLM summarization failed") from e

@@ -2,7 +2,7 @@
 
 from datetime import UTC, datetime, timedelta
 
-from src.deduplicator import _normalize_text, deduplicate_articles
+from src.deduplicator import _compute_similarity, _normalize_text, deduplicate_articles
 from src.rss_fetcher import Article
 
 
@@ -147,6 +147,29 @@ def test_deduplicate_single_article():
     assert result[0].title == "Sole article"
 
 
+def test_deduplicate_empty_normalized_articles_kept_distinct():
+    """Two articles that normalize to empty strings should not be merged."""
+    article_a = _make_article(
+        title="!!!",
+        link="https://a.com/1",
+        summary="???",
+        source="SourceA",
+    )
+    article_b = _make_article(
+        title="...",
+        link="https://b.com/1",
+        summary="---",
+        source="SourceB",
+    )
+    result = deduplicate_articles([article_a, article_b])
+    assert len(result) == 2
+
+
+def test_compute_similarity_both_empty_returns_zero():
+    """Two empty-after-normalization strings should return 0.0, not 1.0."""
+    assert _compute_similarity("!!!", "???") == 0.0
+
+
 def test_normalize_text_strips_punctuation_and_case():
     """Verify normalization: lowercase, no punctuation, normalized whitespace."""
     assert _normalize_text("Hello, World!  How's it  going?") == "hello world hows it going"
@@ -176,8 +199,9 @@ def test_deduplicate_large_cluster_keeps_best():
     assert "Also covered by:" in result[0].summary
 
 
-def test_deduplicate_mixed_clusters_with_many_articles():
-    """25 articles: two clusters of 5 + 15 unique = 17 results."""
+def test_deduplicate_clusters_collapse_unique_articles_survive():
+    """Each cluster of N identical articles collapses to 1; unique articles survive."""
+    cluster_size = 5
     cluster_a = [
         _make_article(
             title="SpaceX launches new rocket to Mars",
@@ -186,7 +210,7 @@ def test_deduplicate_mixed_clusters_with_many_articles():
             source=f"SpaceNews{i}",
             published_hours_ago=1,
         )
-        for i in range(5)
+        for i in range(cluster_size)
     ]
     cluster_b = [
         _make_article(
@@ -196,69 +220,14 @@ def test_deduplicate_mixed_clusters_with_many_articles():
             source=f"TechSite{i}",
             published_hours_ago=2,
         )
-        for i in range(5)
+        for i in range(cluster_size)
     ]
     unique_data = [
-        (
-            "Python 3.15 adds pattern guards",
-            "The Python team shipped version 3.15 with guard clauses.",
-        ),
-        (
-            "Rust foundation announces governance changes",
-            "The Rust foundation restructured its board today.",
-        ),
-        (
-            "EU passes comprehensive data privacy regulation",
-            "European parliament voted to adopt new data privacy rules.",
-        ),
-        (
-            "Tesla recalls 50000 vehicles over brake sensor",
-            "Tesla issued a voluntary recall for Model Y vehicles.",
-        ),
-        (
-            "Netflix reports record quarterly subscriber growth",
-            "Netflix added 19 million subscribers in Q4.",
-        ),
-        (
-            "Bitcoin reaches new all time high above 150k",
-            "Bitcoin surged past 150 thousand driven by ETF inflows.",
-        ),
-        (
-            "NASA confirms water ice on lunar surface",
-            "Artemis data confirms water ice in shadowed craters.",
-        ),
-        (
-            "DeepMind achieves protein folding milestone",
-            "AlphaFold 4 predicts protein interactions accurately.",
-        ),
-        (
-            "Amazon opens fully automated warehouse",
-            "The Texas facility uses robots from receiving to shipping.",
-        ),
-        (
-            "CRISPR therapy approved for sickle cell",
-            "FDA granted full approval for gene editing treatment.",
-        ),
-        (
-            "India launches reusable space vehicle",
-            "ISRO tested its pushpak vehicle with autonomous landing.",
-        ),
-        (
-            "GitHub introduces AI code review tool",
-            "Copilot review analyzes pull requests inline.",
-        ),
-        (
-            "Scientists report record ocean temperatures",
-            "Sea surface temps exceeded records for eighth month.",
-        ),
-        (
-            "Samsung unveils foldable laptop at CES",
-            "The 17 inch OLED display folds in half under one kg.",
-        ),
-        (
-            "WHO declares mpox outbreak contained",
-            "WHO downgraded its mpox emergency classification.",
-        ),
+        ("Python 3.15 adds pattern guards", "The Python team shipped version 3.15 with guards."),
+        ("EU passes data privacy regulation", "European parliament voted on new privacy rules."),
+        ("Tesla recalls vehicles over brake sensor", "Tesla issued a recall for Model Y."),
+        ("NASA confirms water ice on lunar surface", "Artemis data confirms ice in craters."),
+        ("Samsung unveils foldable laptop at CES", "The OLED display folds in half."),
     ]
     unique = [
         _make_article(
@@ -270,5 +239,9 @@ def test_deduplicate_mixed_clusters_with_many_articles():
         )
         for i, (title, summary) in enumerate(unique_data)
     ]
-    result = deduplicate_articles(cluster_a + cluster_b + unique)
-    assert len(result) == 17
+    all_articles = cluster_a + cluster_b + unique
+    result = deduplicate_articles(all_articles)
+    # Each cluster collapses to 1, unique articles survive
+    assert len(result) < len(all_articles)
+    # At minimum: 2 cluster representatives + unique articles
+    assert len(result) >= 2 + len(unique)

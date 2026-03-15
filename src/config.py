@@ -18,7 +18,7 @@ def _validate_feed_url(url: str) -> bool:
     """Lightweight check that a feed URL has a valid scheme and netloc."""
     try:
         parsed = urlparse(url)
-        return parsed.scheme in ("http", "https") and bool(parsed.netloc)
+        return parsed.scheme in ("https",) and bool(parsed.netloc)
     except (ValueError, AttributeError):
         return False
 
@@ -54,7 +54,15 @@ def _load_feeds_config(
         if "line_limits" in topic and len(topic["line_limits"]) == 2:
             min_val, max_val = topic["line_limits"]
             if isinstance(min_val, int) and isinstance(max_val, int):
-                limits[name] = (min_val, max_val)
+                if min_val > max_val:
+                    logger.warning(
+                        "Topic '%s' line_limits min (%d) > max (%d), ignoring",
+                        name,
+                        min_val,
+                        max_val,
+                    )
+                else:
+                    limits[name] = (min_val, max_val)
             else:
                 logger.warning("Topic '%s' line_limits must be integers, ignoring", name)
 
@@ -76,7 +84,7 @@ ARTICLES_PER_FEED: Final[int] = 25
 MAX_ARTICLE_AGE_HOURS: Final[int] = 72
 FETCH_MAX_RETRIES: Final[int] = 2
 FETCH_RETRY_BACKOFF: Final[float] = 1.5  # seconds, doubles each retry
-ALLOWED_URL_SCHEMES: Final[frozenset[str]] = frozenset({"http", "https"})
+ALLOWED_URL_SCHEMES: Final[frozenset[str]] = frozenset({"https"})
 
 # --- Article truncation ---
 TITLE_MAX_LENGTH: Final[int] = 500

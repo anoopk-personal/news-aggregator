@@ -71,8 +71,6 @@ def _compute_similarity(text_a: str, text_b: str) -> float:
     """Compute normalized text similarity between two strings."""
     norm_a = _normalize_text(text_a)
     norm_b = _normalize_text(text_b)
-    if not norm_a and not norm_b:
-        return 1.0
     if not norm_a or not norm_b:
         return 0.0
     return SequenceMatcher(None, norm_a, norm_b).ratio()
