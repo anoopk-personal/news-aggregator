@@ -22,6 +22,7 @@ feeds = [
     "https://pub.towardsai.net/feed",
     "https://www.kdnuggets.com/feed",
     "https://machinelearningmastery.com/feed/",
+    https://www.wsj.com/",
 ]
 line_limits = [100, 200]
 
