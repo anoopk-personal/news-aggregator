@@ -74,6 +74,7 @@ def main(
     """Fetch and summarize news for a given topic."""
     topics = list(FEEDS.keys()) if topic == "both" else [topic]
     all_summaries = []
+    topic_errors = 0
 
     for t in topics:
         click.echo(f"Fetching {t} news...")
@@ -102,9 +103,12 @@ def main(
                 all_summaries.append(summary)
         except (NewsAggregatorError, SummarizationError) as e:
             logger.error("Error fetching %s: %s", t, e)
+            topic_errors += 1
             continue
 
     if not all_summaries:
+        if topic_errors > 0:
+            raise SystemExit(1)
         click.echo("No articles found.")
         return
 
