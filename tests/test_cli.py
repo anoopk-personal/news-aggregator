@@ -154,3 +154,16 @@ def test_cli_continues_after_topic_error(
     assert result.exit_code == 0
     assert "Saved to" in result.output
     mock_write_markdown.assert_called_once()
+
+
+@patch("src.cli.fetch_all_feeds")
+@patch("src.cli.write_markdown")
+def test_cli_exits_nonzero_when_all_topics_fail(mock_write_markdown, mock_fetch_all_feeds):
+    """Exit code 1 when all topics fail with errors (not just empty feeds)."""
+    mock_fetch_all_feeds.side_effect = NewsAggregatorError("feeds unavailable")
+
+    runner = CliRunner()
+    result = runner.invoke(main, ["--topic", "ai"])
+
+    assert result.exit_code == 1
+    mock_write_markdown.assert_not_called()
