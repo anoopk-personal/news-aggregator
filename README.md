@@ -3,7 +3,7 @@
 [![CI](https://github.com/anoopk-personal/news-aggregator/actions/workflows/ci.yml/badge.svg)](https://github.com/anoopk-personal/news-aggregator/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
-A CLI tool that turns RSS feeds into concise daily markdown digests -- optionally summarized by an LLM. Ships with **AI** and **Cricket** topics; add your own in a TOML file.
+A CLI tool that turns RSS feeds into concise daily markdown digests -- optionally summarized by an LLM. Ships with **AI**, **Cricket**, and **Finance** topics; add your own in a TOML file.
 
 ## Quick start
 
@@ -18,7 +18,7 @@ To enable LLM summarization, copy `.env.example` to `.env`, set `OPENAI_API_KEY`
 
 **CLI flags:**
 
-- `--topic` -- required; any topic defined in `feeds.toml` (`ai`, `cricket`), or `both` for all
+- `--topic` -- required; any topic defined in `feeds.toml` (`ai`, `cricket`, `finance`), or `all` for all topics
 - `--output-dir` -- output directory (default: `daily-news/`)
 - `--skip-summarize` -- bypass the LLM, list raw articles
 - `--skip-dedup` -- skip article deduplication
@@ -52,7 +52,7 @@ Run a single test: `uv run pytest tests/test_rss_fetcher.py::test_name -v`
 
 ## Automation
 
-A GitHub Actions workflow runs daily at 5 AM Central and opens a PR with the generated digest. Dependabot keeps dependencies current with weekly PRs.
+A GitHub Actions workflow runs daily at 11:00 UTC and opens a PR with the generated digest. Dependabot keeps dependencies current with weekly PRs.
 
 **Forking?** Add `OPENAI_API_KEY`, `LITELLM_BASE_URL`, and `PAT_TOKEN` as [repository secrets](https://docs.github.com/en/actions/security-for-github-actions/security-guides/using-secrets-in-github-actions).
 

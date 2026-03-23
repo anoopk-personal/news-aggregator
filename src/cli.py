@@ -18,7 +18,7 @@ load_dotenv()
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 logger = logging.getLogger(__name__)
 
-VALID_TOPICS = list(FEEDS.keys()) + ["both"]
+VALID_TOPICS = list(FEEDS.keys()) + ["all"]
 
 
 def _format_articles_as_markdown(articles: list[Article], topic: str) -> str:
@@ -38,7 +38,7 @@ def _format_articles_as_markdown(articles: list[Article], topic: str) -> str:
     "--topic",
     type=click.Choice(VALID_TOPICS, case_sensitive=False),
     required=True,
-    help="News topic to fetch (use 'both' for all topics)",
+    help="News topic to fetch (use 'all' for all topics)",
 )
 @click.option(
     "--output-dir",
@@ -72,7 +72,7 @@ def main(
     dry_run: bool,
 ) -> None:
     """Fetch and summarize news for a given topic."""
-    topics = list(FEEDS.keys()) if topic == "both" else [topic]
+    topics = list(FEEDS.keys()) if topic == "all" else [topic]
     all_summaries = []
     topic_errors = 0
 

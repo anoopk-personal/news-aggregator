@@ -2,7 +2,7 @@ name: Daily News
 
 on:
   schedule:
-    # 5 AM Central US = 11:00 UTC (CST) or 10:00 UTC (CDT)
+    # 11:00 UTC daily (6 AM CDT / 5 AM CST)
     - cron: '0 11 * * *'
   workflow_dispatch:
 
@@ -37,7 +37,7 @@ jobs:
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           LITELLM_BASE_URL: ${{ secrets.LITELLM_BASE_URL }}
-          NEWS_TOPIC: both
+          NEWS_TOPIC: all
         run: uv run get-news --topic "$NEWS_TOPIC"
 
       - name: Create PR with news

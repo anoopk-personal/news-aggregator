@@ -1,4 +1,4 @@
-.PHONY: install test test-cov lint format typecheck audit run-ai run-cricket run-both clean install-hooks
+.PHONY: install test test-cov lint format typecheck audit run-ai run-cricket run-finance run-all clean install-hooks
 
 install:
 	uv sync
@@ -29,8 +29,11 @@ run-ai:
 run-cricket:
 	uv run get-news --topic cricket --skip-summarize
 
-run-both:
-	uv run get-news --topic both --skip-summarize
+run-finance:
+	uv run get-news --topic finance --skip-summarize
+
+run-all:
+	uv run get-news --topic all --skip-summarize
 
 install-hooks:
 	cp scripts/pre-commit .git/hooks/pre-commit

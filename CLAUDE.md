@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Python CLI tool that fetches RSS feeds (AI and Cricket topics), summarizes articles using LLM (Gemini 2.5 Pro via LiteLLM proxy), and outputs daily markdown digests. Runs on a daily schedule via GitHub Actions.
+Python CLI tool that fetches RSS feeds (AI, Cricket, and Finance topics), summarizes articles using LLM (Gemini 2.5 Pro via LiteLLM proxy), and outputs daily markdown digests. Runs on a daily schedule via GitHub Actions.
 
 - **Default branch:** `dev`
 - **Python 3.12**, managed with `uv`
@@ -21,7 +21,8 @@ make typecheck      # mypy type checking on src/
 make audit          # pip-audit dependency vulnerability scan
 make run-ai         # fetch AI articles (no LLM, skips summarization)
 make run-cricket    # fetch cricket articles (no LLM, skips summarization)
-make run-both       # fetch all articles (no LLM, skips summarization)
+make run-finance    # fetch finance articles (no LLM, skips summarization)
+make run-all        # fetch all articles (no LLM, skips summarization)
 make install-hooks  # install git pre-commit hook (email validation)
 ```
 

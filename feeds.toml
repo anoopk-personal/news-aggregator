@@ -32,3 +32,9 @@ feeds = [
     "https://cricketweb.net/feed",
 ]
 line_limits = [20, 50]
+
+[topics.finance]
+feeds = [
+    "https://www.wsj.com/",
+]
+line_limits = [50, 100]

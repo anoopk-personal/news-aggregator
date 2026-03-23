@@ -149,7 +149,7 @@ def test_cli_continues_after_topic_error(
     mock_summarize_articles.return_value = "Cricket digest"
 
     runner = CliRunner()
-    result = runner.invoke(main, ["--topic", "both"])
+    result = runner.invoke(main, ["--topic", "all"])
 
     assert result.exit_code == 0
     assert "Saved to" in result.output
