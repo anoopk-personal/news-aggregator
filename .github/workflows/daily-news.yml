@@ -35,8 +35,8 @@ jobs:
 
       - name: Generate news
         env:
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          LITELLM_BASE_URL: ${{ secrets.LITELLM_BASE_URL }}
+          LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
+          LLM_BASE_URL: ${{ secrets.LLM_BASE_URL }}
           NEWS_TOPIC: all
         run: uv run get-news --topic "$NEWS_TOPIC"
 

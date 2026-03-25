@@ -1,4 +1,4 @@
-"""Tests for config module — TOML feed loading and credential handling."""
+"""Tests for config module -- TOML feed loading and LLM config handling."""
 
 from pathlib import Path
 
@@ -6,7 +6,7 @@ import pytest
 
 from src.config import (
     _load_feeds_config,
-    get_llm_credentials,
+    get_llm_config,
 )
 from src.exceptions import NewsAggregatorError, SummarizationError
 
@@ -95,24 +95,104 @@ line_limits = ["ten", "twenty"]
     assert "test" not in limits
 
 
-# --- Credential env var tests ---
+# --- LLM config env var tests ---
 
 
-def test_get_llm_credentials_strips_whitespace(monkeypatch):
+def test_get_llm_config_strips_whitespace(monkeypatch):
     """Test that leading/trailing whitespace is stripped from env vars."""
-    monkeypatch.setenv("OPENAI_API_KEY", "  my-key\n")
-    monkeypatch.setenv("LITELLM_BASE_URL", "  https://test.com  ")
-    key, url = get_llm_credentials()
+    monkeypatch.setenv("LLM_API_KEY", "  my-key\n")
+    monkeypatch.setenv("LLM_BASE_URL", "  https://test.com  ")
+    key, url, model = get_llm_config()
     assert key == "my-key"
     assert url == "https://test.com"
 
 
-def test_get_llm_credentials_rejects_whitespace_only(monkeypatch):
-    """Test that whitespace-only env vars are treated as missing."""
-    monkeypatch.setenv("OPENAI_API_KEY", "   \n")
-    monkeypatch.setenv("LITELLM_BASE_URL", "https://test.com")
-    with pytest.raises(SummarizationError, match="OPENAI_API_KEY not set"):
-        get_llm_credentials()
+def test_get_llm_config_rejects_whitespace_only_key(monkeypatch):
+    """Test that whitespace-only LLM_API_KEY is treated as missing."""
+    monkeypatch.setenv("LLM_API_KEY", "   \n")
+    monkeypatch.delenv("LLM_BASE_URL", raising=False)
+    with pytest.raises(SummarizationError, match="LLM_API_KEY not set"):
+        get_llm_config()
+
+
+def test_get_llm_config_allows_http_localhost(monkeypatch):
+    """Test that HTTP is allowed for localhost base URLs (Ollama)."""
+    monkeypatch.setenv("LLM_API_KEY", "test-key")
+    monkeypatch.setenv("LLM_BASE_URL", "http://localhost:11434/v1")
+    key, url, model = get_llm_config()
+    assert url == "http://localhost:11434/v1"
+    assert key == "test-key"
+
+
+def test_get_llm_config_allows_http_127_0_0_1(monkeypatch):
+    """Test that HTTP is allowed for 127.0.0.1 base URLs."""
+    monkeypatch.setenv("LLM_API_KEY", "test-key")
+    monkeypatch.setenv("LLM_BASE_URL", "http://127.0.0.1:11434/v1")
+    key, url, model = get_llm_config()
+    assert url == "http://127.0.0.1:11434/v1"
+
+
+def test_get_llm_config_rejects_http_remote(monkeypatch):
+    """Test that HTTP is rejected for non-loopback base URLs."""
+    monkeypatch.setenv("LLM_API_KEY", "test-key")
+    monkeypatch.setenv("LLM_BASE_URL", "http://insecure.com")
+    with pytest.raises(SummarizationError, match="must use HTTPS"):
+        get_llm_config()
+
+
+def test_get_llm_config_no_base_url_returns_none(monkeypatch):
+    """Test that omitting LLM_BASE_URL returns None (OpenAI direct mode)."""
+    monkeypatch.setenv("LLM_API_KEY", "test-key")
+    monkeypatch.delenv("LLM_BASE_URL", raising=False)
+    key, url, model = get_llm_config()
+    assert key == "test-key"
+    assert url is None
+
+
+def test_get_llm_config_no_key_localhost_uses_dummy(monkeypatch):
+    """Test that loopback URL without API key uses 'ollama' as dummy key."""
+    monkeypatch.delenv("LLM_API_KEY", raising=False)
+    monkeypatch.setenv("LLM_BASE_URL", "http://localhost:11434/v1")
+    key, url, model = get_llm_config()
+    assert key == "ollama"
+    assert url == "http://localhost:11434/v1"
+
+
+def test_get_llm_config_no_key_remote_raises(monkeypatch):
+    """Test that missing API key with remote URL raises error."""
+    monkeypatch.delenv("LLM_API_KEY", raising=False)
+    monkeypatch.setenv("LLM_BASE_URL", "https://openrouter.ai/api/v1")
+    with pytest.raises(SummarizationError, match="LLM_API_KEY not set"):
+        get_llm_config()
+
+
+def test_get_llm_config_model_from_env(monkeypatch):
+    """Test that LLM_MODEL env var overrides the default model."""
+    monkeypatch.setenv("LLM_API_KEY", "test-key")
+    monkeypatch.delenv("LLM_BASE_URL", raising=False)
+    monkeypatch.setenv("LLM_MODEL", "gpt-4o")
+    key, url, model = get_llm_config()
+    assert model == "gpt-4o"
+
+
+def test_get_llm_config_model_default(monkeypatch):
+    """Test that default model is used when LLM_MODEL is not set."""
+    monkeypatch.setenv("LLM_API_KEY", "test-key")
+    monkeypatch.delenv("LLM_BASE_URL", raising=False)
+    monkeypatch.delenv("LLM_MODEL", raising=False)
+    key, url, model = get_llm_config()
+    assert model == "gemini-2.5-pro"
+
+
+def test_get_llm_config_openai_direct(monkeypatch):
+    """Test OpenAI direct mode: only API key set, no base URL."""
+    monkeypatch.setenv("LLM_API_KEY", "sk-test123")
+    monkeypatch.delenv("LLM_BASE_URL", raising=False)
+    monkeypatch.delenv("LLM_MODEL", raising=False)
+    key, url, model = get_llm_config()
+    assert key == "sk-test123"
+    assert url is None
+    assert model == "gemini-2.5-pro"
 
 
 # --- Feed URL validation tests ---

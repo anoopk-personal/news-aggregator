@@ -1,4 +1,4 @@
-"""Summarize articles using LiteLLM with Gemini."""
+"""Summarize articles using an LLM provider."""
 
 import json
 import logging
@@ -9,12 +9,11 @@ from openai import OpenAI
 
 from .config import (
     DEFAULT_LINE_LIMITS,
-    LITELLM_MAX_TOKENS,
-    LITELLM_MODEL,
-    LITELLM_TEMPERATURE,
-    LITELLM_TIMEOUT,
+    LLM_MAX_TOKENS,
+    LLM_TEMPERATURE,
+    LLM_TIMEOUT,
     TOPIC_LINE_LIMITS,
-    get_llm_credentials,
+    get_llm_config,
 )
 from .exceptions import SummarizationError
 from .rss_fetcher import Article
@@ -24,14 +23,14 @@ logger = logging.getLogger(__name__)
 
 def summarize_articles(articles: list[Article], topic: str) -> str:
     """Summarize a list of articles into a comprehensive digest."""
-    api_key, base_url = get_llm_credentials()
-
     if not articles:
         return f"No articles found for {topic}."
 
+    api_key, base_url, model = get_llm_config()
+
     min_lines, max_lines = TOPIC_LINE_LIMITS.get(topic.lower(), DEFAULT_LINE_LIMITS)
 
-    client = OpenAI(api_key=api_key, base_url=base_url)
+    client = OpenAI(api_key=api_key, base_url=base_url) if base_url else OpenAI(api_key=api_key)
 
     # Use JSON serialization to prevent prompt injection via malicious article content.
     # JSON escaping neutralizes any structural injection attempts (e.g. closing XML tags).
@@ -76,11 +75,11 @@ Remember: Write {min_lines}-{max_lines} lines. Be comprehensive, not brief."""
 
     try:
         response = client.chat.completions.create(
-            model=LITELLM_MODEL,
+            model=model,
             messages=[{"role": "user", "content": prompt}],
-            max_tokens=LITELLM_MAX_TOKENS,
-            temperature=LITELLM_TEMPERATURE,
-            timeout=LITELLM_TIMEOUT,
+            max_tokens=LLM_MAX_TOKENS,
+            temperature=LLM_TEMPERATURE,
+            timeout=LLM_TIMEOUT,
         )
         content = response.choices[0].message.content or ""
         line_count = len(content.strip().split("\n"))

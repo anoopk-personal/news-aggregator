@@ -92,23 +92,45 @@ SUMMARY_MAX_LENGTH: Final[int] = 1000
 SOURCE_MAX_LENGTH: Final[int] = 100
 
 # --- LLM ---
-LITELLM_MODEL: Final[str] = "gemini-2.5-pro"
-LITELLM_MAX_TOKENS: Final[int] = 8000
-LITELLM_TEMPERATURE: Final[float] = 0.3
-LITELLM_TIMEOUT: Final[int] = 180  # seconds
+LLM_MODEL_DEFAULT: Final[str] = "gemini-2.5-pro"
+LLM_MAX_TOKENS: Final[int] = 8000
+LLM_TEMPERATURE: Final[float] = 0.3
+LLM_TIMEOUT: Final[int] = 180  # seconds
 
 
-def get_llm_credentials() -> tuple[str, str]:
-    """Return (api_key, base_url) from env. Raises SummarizationError if missing."""
-    key = (os.environ.get("OPENAI_API_KEY") or "").strip()
-    url = (os.environ.get("LITELLM_BASE_URL") or "").strip()
+def _is_loopback_url(url: str) -> bool:
+    """Return True if the URL points to a loopback address (localhost, 127.0.0.1, ::1)."""
+    parsed = urlparse(url)
+    hostname = (parsed.hostname or "").lower()
+    return hostname in ("localhost", "127.0.0.1", "::1")
+
+
+def get_llm_config() -> tuple[str, str | None, str]:
+    """Return (api_key, base_url_or_none, model) from env vars.
+
+    Env vars:
+        LLM_API_KEY   -- required for remote providers, optional for loopback (Ollama)
+        LLM_BASE_URL  -- optional; omit for OpenAI direct
+        LLM_MODEL     -- optional; defaults to gemini-2.5-pro
+
+    Raises SummarizationError if required values are missing or invalid.
+    """
+    key = (os.environ.get("LLM_API_KEY") or "").strip()
+    url = (os.environ.get("LLM_BASE_URL") or "").strip()
+    model = (os.environ.get("LLM_MODEL") or "").strip() or LLM_MODEL_DEFAULT
+
+    base_url: str | None = url or None
+
+    if base_url is not None:
+        is_loopback = _is_loopback_url(base_url)
+        if not is_loopback and not base_url.startswith("https://"):
+            raise SummarizationError("LLM_BASE_URL must use HTTPS for remote providers")
+        if not key and is_loopback:
+            key = "ollama"
     if not key:
-        raise SummarizationError("OPENAI_API_KEY not set")
-    if not url:
-        raise SummarizationError("LITELLM_BASE_URL not set")
-    if not url.startswith("https://"):
-        raise SummarizationError("LITELLM_BASE_URL must use HTTPS")
-    return key, url
+        raise SummarizationError("LLM_API_KEY not set")
+
+    return key, base_url, model
 
 
 # --- Output ---

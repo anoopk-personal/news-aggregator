@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Python CLI tool that fetches RSS feeds (AI, Cricket, and Finance topics), summarizes articles using LLM (Gemini 2.5 Pro via LiteLLM proxy), and outputs daily markdown digests. Runs on a daily schedule via GitHub Actions.
+Python CLI tool that fetches RSS feeds (AI, Cricket, and Finance topics), summarizes articles using any OpenAI-compatible LLM provider (Ollama, OpenAI, OpenRouter, LiteLLM, etc.), and outputs daily markdown digests. Runs on a daily schedule via GitHub Actions.
 
 - **Default branch:** `dev`
 - **Python 3.12**, managed with `uv`
@@ -34,10 +34,10 @@ Run a single test: `uv run pytest tests/test_rss_fetcher.py::test_sanitize_remov
 **Data flow:** CLI (`cli.py`) → async RSS fetch (`rss_fetcher.py`) → deduplicate (`deduplicator.py`) → LLM summarize (`summarizer.py`) → write markdown (`markdown_generator.py`)
 
 - **cli.py** — Click entry point (`get-news` command), orchestrates the pipeline. `--skip-summarize` flag bypasses LLM and uses `_format_articles_as_markdown()` to produce a plain listing. `--skip-dedup` flag bypasses article deduplication. `--dry-run` flag prints digest to stdout without writing a file
-- **config.py** — Loads topics/feeds from `feeds.toml` via `_load_feeds_config()` (raises `NewsAggregatorError` if missing). All other constants centralized here (timeouts, retry settings, line limits, dedup threshold, LLM model). No magic numbers elsewhere
+- **config.py** — Loads topics/feeds from `feeds.toml` via `_load_feeds_config()` (raises `NewsAggregatorError` if missing). All other constants centralized here (timeouts, retry settings, line limits, dedup threshold). `get_llm_config()` returns `(api_key, base_url | None, model)` from `LLM_API_KEY`, `LLM_BASE_URL`, `LLM_MODEL` env vars. No magic numbers elsewhere
 - **deduplicator.py** — `deduplicate_articles()` groups near-duplicate articles using `difflib.SequenceMatcher` similarity (threshold: `DEDUP_SIMILARITY_THRESHOLD`). Single-linkage clustering keeps the article with the longest summary from each cluster and adds "Also covered by" attribution
 - **rss_fetcher.py** — `fetch_all_feeds()` uses `asyncio` + `httpx.AsyncClient` for concurrent fetching with automatic retry (exponential backoff). `Article` dataclass holds parsed data. Filters to last 72 hours, max 25 articles/feed
-- **summarizer.py** — OpenAI SDK configured with LiteLLM `base_url`. Uses topic-specific line limits from `feeds.toml`, defaulting to (50, 100)
+- **summarizer.py** — OpenAI SDK client, optionally configured with a custom `base_url` for non-OpenAI providers. Model name from `LLM_MODEL` env var (default: `gemini-2.5-pro`). Uses topic-specific line limits from `feeds.toml`, defaulting to (50, 100)
 - **markdown_generator.py** — Writes `news-MM-DD-YY.md` to `daily-news/`, duplicates get `(2)` suffix
 - **utils.py** — Shared `EMOJI_PATTERN` regex used by both fetcher and markdown generator
 - **exceptions.py** — `NewsAggregatorError` base, `SummarizationError` for LLM failures
@@ -101,4 +101,10 @@ Feeds are untrusted input. Defenses are layered across the pipeline:
 
 ## Environment Variables
 
-`OPENAI_API_KEY` and `LITELLM_BASE_URL` are required for the full summarization pipeline (see `.env.example`). Not needed for `--skip-summarize` local runs. In CI, these plus `PAT_TOKEN` are configured as GitHub secrets.
+LLM summarization uses three env vars (set in `.env` or exported):
+
+- `LLM_API_KEY` — API key for the LLM provider. Optional for local Ollama (auto-set to `"ollama"`)
+- `LLM_BASE_URL` — Base URL for the provider. Optional for OpenAI direct (SDK default). HTTP allowed for localhost only; HTTPS required for remote
+- `LLM_MODEL` — Model name (default: `gemini-2.5-pro`). Provider-specific, e.g. `llama3` for Ollama, `gpt-4o` for OpenAI
+
+None needed for `--skip-summarize` local runs. In CI, `LLM_API_KEY`, `LLM_BASE_URL`, and `PAT_TOKEN` are configured as GitHub secrets.
