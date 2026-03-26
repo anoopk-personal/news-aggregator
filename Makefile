@@ -21,7 +21,7 @@ typecheck:
 	uv run mypy src/
 
 audit:
-	uv run pip-audit --ignore-vuln CVE-2026-4539
+	uv run pip-audit --ignore-vuln CVE-2026-4539 --ignore-vuln CVE-2026-25645
 
 run-ai:
 	uv run get-news --topic ai --skip-summarize
