@@ -1,7 +1,7 @@
 {
   "run_date": "2026-03-26",
-  "run_timestamp": "2026-03-26T01:56:04.636390+00:00",
-  "duration_seconds": 121.7,
+  "run_timestamp": "2026-03-26T11:55:38.834930+00:00",
+  "duration_seconds": 117.0,
   "model": "gemini-2.5-pro",
   "skipped_summarize": false,
   "skipped_dedup": false,
@@ -11,11 +11,11 @@
       "feeds_total": 18,
       "feeds_succeeded": 13,
       "feeds_failed": 5,
-      "articles_fetched": 89,
-      "articles_after_dedup": 89,
-      "prompt_tokens": 12549,
+      "articles_fetched": 91,
+      "articles_after_dedup": 91,
+      "prompt_tokens": 13044,
       "completion_tokens": 7996,
-      "total_tokens": 20545,
+      "total_tokens": 21040,
       "error": null
     },
     {
@@ -26,8 +26,8 @@
       "articles_fetched": 36,
       "articles_after_dedup": 36,
       "prompt_tokens": 3801,
-      "completion_tokens": 4104,
-      "total_tokens": 7905,
+      "completion_tokens": 3559,
+      "total_tokens": 7360,
       "error": null
     },
     {
@@ -43,11 +43,11 @@
       "error": null
     }
   ],
-  "total_articles_fetched": 125,
-  "total_articles_after_dedup": 125,
-  "total_tokens": 28450,
-  "total_prompt_tokens": 16350,
-  "total_completion_tokens": 12100,
+  "total_articles_fetched": 127,
+  "total_articles_after_dedup": 127,
+  "total_tokens": 28400,
+  "total_prompt_tokens": 16845,
+  "total_completion_tokens": 11555,
   "total_feeds": 22,
   "successful_feeds": 15,
   "topic_errors": 0
