@@ -140,20 +140,20 @@ class TestRenderDashboard:
         assert DASHBOARD_START in dashboard
         assert DASHBOARD_END in dashboard
         assert "Pipeline Health" in dashboard
-        assert "Last 7 days" in dashboard
-        assert "Last 30 days" in dashboard
+        assert "**7 days**" in dashboard
+        assert "**30 days**" in dashboard
         assert "gemini-2.5-pro" in dashboard
 
     def test_empty_metrics(self):
         dashboard = render_dashboard([], today=date(2026, 3, 25))
-        assert "| Last 7 days | 0" in dashboard
-        assert "| Last 30 days | 0" in dashboard
+        assert "**7 days**" in dashboard
+        assert "**30 days**" in dashboard
 
     def test_cost_footnote_includes_model(self):
         metrics = [_sample_run("2026-03-25", model="gpt-4o")]
         dashboard = render_dashboard(metrics, today=date(2026, 3, 25))
         assert "`gpt-4o`" in dashboard
-        assert "$2.5/1M input" in dashboard
+        assert "$2.5/1M in" in dashboard
 
 
 class TestUpdateReadme:

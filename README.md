@@ -5,6 +5,9 @@
 
 A CLI tool that turns RSS feeds into concise daily markdown digests -- optionally summarized by an LLM. Ships with **AI**, **Cricket**, and **Finance** topics; add your own in a TOML file.
 
+<!-- DASHBOARD:START -->
+<!-- DASHBOARD:END -->
+
 ## Quick start
 
 > Requires [Python 3.12+](https://www.python.org/downloads/) and [uv](https://docs.astral.sh/uv/getting-started/installation/).
@@ -83,24 +86,13 @@ Run a single test: `uv run pytest tests/test_rss_fetcher.py::test_name -v`
 
 ## Automation
 
-A GitHub Actions workflow runs daily at 11:00 UTC and opens a PR with the generated digest. Each run captures pipeline metrics (article counts, feed health, token usage, duration) to `metrics/` and updates the Pipeline Health dashboard above. Dependabot keeps dependencies current with weekly PRs.
+A GitHub Actions workflow runs daily at 11:00 UTC and opens a PR with the generated digest. Each run captures pipeline metrics (article counts, feed health, token usage, duration) to `metrics/` and updates the Pipeline Health dashboard at the top of this README. Dependabot keeps dependencies current with weekly PRs.
 
 **Forking?** Add `LLM_API_KEY`, `LLM_BASE_URL`, and `PAT_TOKEN` as [repository secrets](https://docs.github.com/en/actions/security-for-github-actions/security-guides/using-secrets-in-github-actions). Optionally set `LLM_MODEL` if you use a different model than the default (`gemini-2.5-pro`).
 
 ## Security
 
 Feeds are untrusted input. Defenses include SSRF protection (private IP rejection), HTML sanitization, prompt injection mitigation (JSON serialization), HTTPS enforcement, and input truncation. See [SECURITY.md](SECURITY.md) for reporting guidelines.
-
-<!-- DASHBOARD:START -->
-## Pipeline Health
-
-| Period | Runs | Articles | After dedup | Feed success | Tokens (k) | Est. cost | Avg duration |
-|--------|------|----------|-------------|--------------|-------------|-----------|--------------|
-| Last 7 days | 1 | 125 | 125 | 68% | 26k | $0.11 | 3.0m |
-| Last 30 days | 1 | 125 | 125 | 68% | 26k | $0.11 | 3.0m |
-
-_Last updated: 2026-03-26. Cost estimated at $1.25/1M input + $10.0/1M output tokens for `gemini-2.5-pro`._
-<!-- DASHBOARD:END -->
 
 ## License
 

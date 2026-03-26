@@ -130,8 +130,8 @@ def render_dashboard(
     today: date | None = None,
 ) -> str:
     """Render the dashboard markdown table."""
-    summary_7 = compute_summary(metrics, days=7, label="Last 7 days", today=today)
-    summary_30 = compute_summary(metrics, days=30, label="Last 30 days", today=today)
+    summary_7 = compute_summary(metrics, days=7, label="7 days", today=today)
+    summary_30 = compute_summary(metrics, days=30, label="30 days", today=today)
 
     # Determine model for cost estimation from most recent run.
     model = "unknown"
@@ -143,9 +143,8 @@ def render_dashboard(
     for summary in [summary_7, summary_30]:
         cost = estimate_cost(summary.prompt_tokens, summary.completion_tokens, model)
         rows.append(
-            f"| {summary.label} | {summary.runs} "
+            f"| **{summary.label}** | {summary.runs} "
             f"| {_format_number(summary.articles_fetched)} "
-            f"| {_format_number(summary.articles_after_dedup)} "
             f"| {summary.feed_success_rate:.0f}% "
             f"| {_format_tokens(summary.total_tokens)} "
             f"| {_format_cost(cost)} "
@@ -160,17 +159,17 @@ def render_dashboard(
     table = "\n".join(
         [
             DASHBOARD_START,
-            "## Pipeline Health",
             "",
-            "| Period | Runs | Articles | After dedup | Feed success"
-            " | Tokens (k) | Est. cost | Avg duration |",
-            "|--------|------|----------|-------------|------------"
-            "--|-------------|-----------|--------------|",
+            "### Pipeline Health",
+            "",
+            "| | Runs | Articles | Feeds | Tokens | Cost | Avg time |",
+            "|---|:---:|:---:|:---:|:---:|:---:|:---:|",
             *rows,
             "",
-            f"_Last updated: {reference.isoformat()}."
-            f" Cost estimated at ${input_rate}/1M input + ${output_rate}/1M output tokens"
-            f" for `{model}`._",
+            f"> Updated {reference.isoformat()}"
+            f" | Cost: ${input_rate}/1M in + ${output_rate}/1M out"
+            f" (`{model}`)",
+            "",
             DASHBOARD_END,
         ]
     )

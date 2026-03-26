@@ -1,0 +1,42 @@
+{
+  "run_date": "2026-03-17",
+  "run_timestamp": "2026-03-17T11:46:55",
+  "duration_seconds": 176.0,
+  "model": "gemini-2.5-pro",
+  "skipped_summarize": false,
+  "skipped_dedup": false,
+  "topics": [
+    {
+      "topic": "ai",
+      "feeds_total": 18,
+      "feeds_succeeded": 12,
+      "feeds_failed": 6,
+      "articles_fetched": 35,
+      "articles_after_dedup": 35,
+      "prompt_tokens": 0,
+      "completion_tokens": 0,
+      "total_tokens": 0,
+      "error": null
+    },
+    {
+      "topic": "cricket",
+      "feeds_total": 3,
+      "feeds_succeeded": 2,
+      "feeds_failed": 1,
+      "articles_fetched": 11,
+      "articles_after_dedup": 11,
+      "prompt_tokens": 0,
+      "completion_tokens": 0,
+      "total_tokens": 0,
+      "error": null
+    }
+  ],
+  "total_articles_fetched": 46,
+  "total_articles_after_dedup": 46,
+  "total_tokens": 0,
+  "total_prompt_tokens": 0,
+  "total_completion_tokens": 0,
+  "total_feeds": 21,
+  "successful_feeds": 14,
+  "topic_errors": 0
+}
