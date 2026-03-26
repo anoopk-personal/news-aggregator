@@ -31,6 +31,7 @@ htmlcov/
 
 # Output (force-added in CI workflow with git add -f)
 daily-news/
+metrics/
 
 # OS
 .DS_Store

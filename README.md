@@ -53,7 +53,7 @@ cp .env.example .env
 - `--output-dir` -- output directory (default: `daily-news/`)
 - `--skip-summarize` -- bypass the LLM, list raw articles
 - `--skip-dedup` -- skip article deduplication
-- `--dry-run` -- print to stdout, do not write a file
+- `--dry-run` -- print to stdout, do not write files or metrics
 
 ## Custom topics
 
@@ -77,19 +77,22 @@ line_limits = [50, 100]   # min/max lines for the LLM summary
 | `make lint` | Lint + format check (ruff) |
 | `make format` | Auto-fix lint issues |
 
-Other targets: `make test-cov` (80% coverage gate), `make typecheck`, `make audit`, `make install-hooks`.
+Other targets: `make test-cov` (80% coverage gate), `make typecheck`, `make audit`, `make install-hooks`, `make dashboard`.
 
 Run a single test: `uv run pytest tests/test_rss_fetcher.py::test_name -v`
 
 ## Automation
 
-A GitHub Actions workflow runs daily at 11:00 UTC and opens a PR with the generated digest. Dependabot keeps dependencies current with weekly PRs.
+A GitHub Actions workflow runs daily at 11:00 UTC and opens a PR with the generated digest. Each run captures pipeline metrics (article counts, feed health, token usage, duration) to `metrics/` and updates the Pipeline Health dashboard above. Dependabot keeps dependencies current with weekly PRs.
 
 **Forking?** Add `LLM_API_KEY`, `LLM_BASE_URL`, and `PAT_TOKEN` as [repository secrets](https://docs.github.com/en/actions/security-for-github-actions/security-guides/using-secrets-in-github-actions). Optionally set `LLM_MODEL` if you use a different model than the default (`gemini-2.5-pro`).
 
 ## Security
 
 Feeds are untrusted input. Defenses include SSRF protection (private IP rejection), HTML sanitization, prompt injection mitigation (JSON serialization), HTTPS enforcement, and input truncation. See [SECURITY.md](SECURITY.md) for reporting guidelines.
+
+<!-- DASHBOARD:START -->
+<!-- DASHBOARD:END -->
 
 ## License
 

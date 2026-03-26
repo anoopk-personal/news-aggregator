@@ -1,15 +1,24 @@
 """CLI interface for the news aggregator."""
 
 import logging
+import time
 from pathlib import Path
 
 import click
 from dotenv import load_dotenv
 
-from .config import CONTENT_SEPARATOR, DEFAULT_OUTPUT_DIR, FEEDS
+from .config import (
+    CONTENT_SEPARATOR,
+    DEFAULT_METRICS_DIR,
+    DEFAULT_OUTPUT_DIR,
+    FEEDS,
+    LLM_MODEL_DEFAULT,
+    get_llm_config,
+)
 from .deduplicator import deduplicate_articles
 from .exceptions import NewsAggregatorError, SummarizationError
 from .markdown_generator import get_output_path, write_markdown
+from .metrics import RunMetrics, TopicMetrics
 from .rss_fetcher import Article, fetch_all_feeds
 from .summarizer import summarize_articles
 
@@ -72,14 +81,29 @@ def main(
     dry_run: bool,
 ) -> None:
     """Fetch and summarize news for a given topic."""
+    start_time = time.monotonic()
     topics = list(FEEDS.keys()) if topic == "all" else [topic]
     all_summaries = []
+    all_topic_metrics: list[TopicMetrics] = []
     topic_errors = 0
+    if not skip_summarize:
+        try:
+            _, _, model = get_llm_config()
+        except Exception:
+            model = LLM_MODEL_DEFAULT
+    else:
+        model = LLM_MODEL_DEFAULT
 
     for t in topics:
         click.echo(f"Fetching {t} news...")
+        tm = TopicMetrics(topic=t)
         try:
-            articles = fetch_all_feeds(t)
+            fetch_result = fetch_all_feeds(t)
+            articles = fetch_result.articles
+            tm.feeds_total = fetch_result.feeds_total
+            tm.feeds_succeeded = fetch_result.feeds_succeeded
+            tm.feeds_failed = fetch_result.feeds_failed
+            tm.articles_fetched = len(articles)
             click.echo(f"Found {len(articles)} articles")
 
             if articles and not skip_dedup:
@@ -93,18 +117,37 @@ def main(
                         len(articles),
                         removed,
                     )
+            tm.articles_after_dedup = len(articles)
 
             if articles:
                 if skip_summarize:
                     summary = _format_articles_as_markdown(articles, t)
                 else:
                     click.echo("Summarizing...")
-                    summary = summarize_articles(articles, t)
+                    summarize_result = summarize_articles(articles, t)
+                    summary = summarize_result.content
+                    tm.prompt_tokens = summarize_result.prompt_tokens
+                    tm.completion_tokens = summarize_result.completion_tokens
+                    tm.total_tokens = summarize_result.total_tokens
                 all_summaries.append(summary)
         except (NewsAggregatorError, SummarizationError) as e:
             logger.error("Error fetching %s: %s", t, e)
+            tm.error = str(e)
             topic_errors += 1
-            continue
+        finally:
+            all_topic_metrics.append(tm)
+
+    duration = time.monotonic() - start_time
+
+    if not dry_run:
+        run_metrics = RunMetrics.create_now(
+            duration_seconds=duration,
+            model=model,
+            skipped_summarize=skip_summarize,
+            skipped_dedup=skip_dedup,
+            topics=all_topic_metrics,
+        )
+        run_metrics.save(DEFAULT_METRICS_DIR)
 
     if not all_summaries:
         if topic_errors > 0:

@@ -44,6 +44,16 @@ class Article:
     published: datetime | None = None
 
 
+@dataclass
+class FetchResult:
+    """Result of fetching all feeds for a topic."""
+
+    articles: list[Article]
+    feeds_total: int
+    feeds_succeeded: int
+    feeds_failed: int
+
+
 def _is_non_routable_host(hostname: str) -> bool:
     """Check if a hostname is a non-globally-routable IP or localhost."""
     if not hostname:
@@ -177,17 +187,17 @@ async def _fetch_feed_async(url: str, client: httpx.AsyncClient) -> list[Article
     return []
 
 
-def fetch_all_feeds(topic: str) -> list[Article]:
+def fetch_all_feeds(topic: str) -> FetchResult:
     """Fetch all feeds for a topic concurrently."""
     urls = FEEDS.get(topic.lower(), [])
     if not urls:
         logger.error("Unknown topic: %s", topic)
-        return []
+        return FetchResult(articles=[], feeds_total=0, feeds_succeeded=0, feeds_failed=0)
 
     return asyncio.run(_fetch_all_feeds_async(urls, topic))
 
 
-async def _fetch_all_feeds_async(urls: list[str], topic: str) -> list[Article]:
+async def _fetch_all_feeds_async(urls: list[str], topic: str) -> FetchResult:
     """Fetch all feeds concurrently using asyncio."""
     async with httpx.AsyncClient() as client:
         tasks = [_fetch_feed_async(url, client) for url in urls]
@@ -213,7 +223,12 @@ async def _fetch_all_feeds_async(urls: list[str], topic: str) -> list[Article]:
         successful_feeds,
         failed_feeds,
     )
-    return all_articles
+    return FetchResult(
+        articles=all_articles,
+        feeds_total=len(urls),
+        feeds_succeeded=successful_feeds,
+        feeds_failed=failed_feeds,
+    )
 
 
 def _parse_feed(text: str, url: str) -> list[Article]:

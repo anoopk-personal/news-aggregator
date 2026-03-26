@@ -40,6 +40,9 @@ jobs:
           NEWS_TOPIC: all
         run: uv run get-news --topic "$NEWS_TOPIC"
 
+      - name: Update dashboard
+        run: uv run python -m src.dashboard
+
       - name: Create PR with news
         env:
           # PAT_TOKEN required: GITHUB_TOKEN-created PRs don't trigger other workflows,
@@ -50,7 +53,8 @@ jobs:
           BRANCH="daily-news/${DATE}"
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add -f daily-news/
+          git add -f daily-news/ metrics/
+          git add README.md
           if git diff --staged --quiet; then
             echo "No news files generated"
             exit 0

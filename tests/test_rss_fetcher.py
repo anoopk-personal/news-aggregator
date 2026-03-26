@@ -610,16 +610,20 @@ def test_fetch_all_feeds_returns_articles_for_valid_topic(mock_fetch_async):
     )
     mock_fetch_async.return_value = [article]
 
-    articles = fetch_all_feeds("testtopic")
-    assert len(articles) == 1
-    assert articles[0].title == "Test"
+    result = fetch_all_feeds("testtopic")
+    assert len(result.articles) == 1
+    assert result.articles[0].title == "Test"
+    assert result.feeds_total == 1
+    assert result.feeds_succeeded == 1
+    assert result.feeds_failed == 0
 
 
 @patch("src.rss_fetcher.FEEDS", {"ai": ["https://example.com/feed"]})
 def test_fetch_all_feeds_returns_empty_for_unknown_topic():
-    """Verify fetch_all_feeds returns empty list and logs error for unknown topic."""
-    articles = fetch_all_feeds("nonexistent")
-    assert articles == []
+    """Verify fetch_all_feeds returns empty FetchResult for unknown topic."""
+    result = fetch_all_feeds("nonexistent")
+    assert result.articles == []
+    assert result.feeds_total == 0
 
 
 @patch("src.rss_fetcher._fetch_feed_async", new_callable=AsyncMock)
@@ -637,10 +641,13 @@ def test_fetch_all_feeds_continues_when_some_feeds_fail(mock_fetch_async):
         [article_c],
     ]
 
-    articles = fetch_all_feeds("testtopic")
-    assert len(articles) == 2
-    assert articles[0].title == "From A"
-    assert articles[1].title == "From C"
+    result = fetch_all_feeds("testtopic")
+    assert len(result.articles) == 2
+    assert result.articles[0].title == "From A"
+    assert result.articles[1].title == "From C"
+    assert result.feeds_total == 3
+    assert result.feeds_succeeded == 2
+    assert result.feeds_failed == 1
 
 
 # --- Redirect SSRF tests ---

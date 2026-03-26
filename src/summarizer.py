@@ -2,6 +2,7 @@
 
 import json
 import logging
+from dataclasses import dataclass
 
 import httpx
 import openai
@@ -21,10 +22,25 @@ from .rss_fetcher import Article
 logger = logging.getLogger(__name__)
 
 
-def summarize_articles(articles: list[Article], topic: str) -> str:
+@dataclass
+class SummarizeResult:
+    """Result of LLM summarization including token usage."""
+
+    content: str
+    prompt_tokens: int
+    completion_tokens: int
+    total_tokens: int
+
+
+def summarize_articles(articles: list[Article], topic: str) -> SummarizeResult:
     """Summarize a list of articles into a comprehensive digest."""
     if not articles:
-        return f"No articles found for {topic}."
+        return SummarizeResult(
+            content=f"No articles found for {topic}.",
+            prompt_tokens=0,
+            completion_tokens=0,
+            total_tokens=0,
+        )
 
     api_key, base_url, model = get_llm_config()
 
@@ -92,7 +108,15 @@ Remember: Write {min_lines}-{max_lines} lines. Be comprehensive, not brief."""
                 max_lines,
                 topic,
             )
-        return content
+        usage = response.usage
+        prompt_tokens = usage.prompt_tokens if usage else 0
+        completion_tokens = usage.completion_tokens if usage else 0
+        return SummarizeResult(
+            content=content,
+            prompt_tokens=prompt_tokens,
+            completion_tokens=completion_tokens,
+            total_tokens=prompt_tokens + completion_tokens,
+        )
     except (openai.OpenAIError, httpx.HTTPError) as e:
         logger.error("Summarization failed: %s", type(e).__name__)
         raise SummarizationError("LLM summarization failed") from e

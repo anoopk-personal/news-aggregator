@@ -133,6 +133,18 @@ def get_llm_config() -> tuple[str, str | None, str]:
     return key, base_url, model
 
 
+# --- Metrics ---
+DEFAULT_METRICS_DIR: Final[Path] = Path(__file__).parent.parent / "metrics"
+
+# Cost per 1M tokens (input, output) for dashboard estimation only.
+MODEL_COST_PER_MILLION_TOKENS: Final[dict[str, tuple[float, float]]] = {
+    "gemini-2.5-pro": (1.25, 10.00),
+    "gpt-4o": (2.50, 10.00),
+    "gpt-4o-mini": (0.15, 0.60),
+    "llama3": (0.0, 0.0),
+}
+DEFAULT_COST_PER_MILLION_TOKENS: Final[tuple[float, float]] = (1.00, 3.00)
+
 # --- Output ---
 DEFAULT_OUTPUT_DIR: Final[Path] = Path(__file__).parent.parent / "daily-news"
 OUTPUT_FILENAME_PREFIX: Final[str] = "news-"

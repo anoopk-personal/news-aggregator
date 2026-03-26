@@ -24,6 +24,7 @@ make run-cricket    # fetch cricket articles (no LLM, skips summarization)
 make run-finance    # fetch finance articles (no LLM, skips summarization)
 make run-all        # fetch all articles (no LLM, skips summarization)
 make install-hooks  # install git pre-commit hook (email validation)
+make dashboard      # regenerate pipeline health dashboard in README.md
 ```
 
 Run a single test file: `uv run pytest tests/test_rss_fetcher.py -v`
@@ -31,21 +32,23 @@ Run a single test: `uv run pytest tests/test_rss_fetcher.py::test_sanitize_remov
 
 ## Architecture
 
-**Data flow:** CLI (`cli.py`) → async RSS fetch (`rss_fetcher.py`) → deduplicate (`deduplicator.py`) → LLM summarize (`summarizer.py`) → write markdown (`markdown_generator.py`)
+**Data flow:** CLI (`cli.py`) → async RSS fetch (`rss_fetcher.py`) → deduplicate (`deduplicator.py`) → LLM summarize (`summarizer.py`) → write markdown (`markdown_generator.py`) → save metrics (`metrics.py`)
 
-- **cli.py** — Click entry point (`get-news` command), orchestrates the pipeline. `--skip-summarize` flag bypasses LLM and uses `_format_articles_as_markdown()` to produce a plain listing. `--skip-dedup` flag bypasses article deduplication. `--dry-run` flag prints digest to stdout without writing a file
-- **config.py** — Loads topics/feeds from `feeds.toml` via `_load_feeds_config()` (raises `NewsAggregatorError` if missing). All other constants centralized here (timeouts, retry settings, line limits, dedup threshold). `get_llm_config()` returns `(api_key, base_url | None, model)` from `LLM_API_KEY`, `LLM_BASE_URL`, `LLM_MODEL` env vars. No magic numbers elsewhere
+- **cli.py** — Click entry point (`get-news` command), orchestrates the pipeline. `--skip-summarize` flag bypasses LLM and uses `_format_articles_as_markdown()` to produce a plain listing. `--skip-dedup` flag bypasses article deduplication. `--dry-run` flag prints digest to stdout without writing a file or metrics. Collects per-topic metrics (feed stats, token usage, timing) and saves to `metrics/`
+- **config.py** — Loads topics/feeds from `feeds.toml` via `_load_feeds_config()` (raises `NewsAggregatorError` if missing). All other constants centralized here (timeouts, retry settings, line limits, dedup threshold, LLM cost table). `get_llm_config()` returns `(api_key, base_url | None, model)` from `LLM_API_KEY`, `LLM_BASE_URL`, `LLM_MODEL` env vars. No magic numbers elsewhere
 - **deduplicator.py** — `deduplicate_articles()` groups near-duplicate articles using `difflib.SequenceMatcher` similarity (threshold: `DEDUP_SIMILARITY_THRESHOLD`). Single-linkage clustering keeps the article with the longest summary from each cluster and adds "Also covered by" attribution
-- **rss_fetcher.py** — `fetch_all_feeds()` uses `asyncio` + `httpx.AsyncClient` for concurrent fetching with automatic retry (exponential backoff). `Article` dataclass holds parsed data. Filters to last 72 hours, max 25 articles/feed
-- **summarizer.py** — OpenAI SDK client, optionally configured with a custom `base_url` for non-OpenAI providers. Model name from `LLM_MODEL` env var (default: `gemini-2.5-pro`). Uses topic-specific line limits from `feeds.toml`, defaulting to (50, 100)
+- **rss_fetcher.py** — `fetch_all_feeds()` returns a `FetchResult` dataclass (articles + feed success/failure counts). Uses `asyncio` + `httpx.AsyncClient` for concurrent fetching with automatic retry (exponential backoff). `Article` dataclass holds parsed data. Filters to last 72 hours, max 25 articles/feed
+- **summarizer.py** — `summarize_articles()` returns a `SummarizeResult` dataclass (content + token usage). OpenAI SDK client, optionally configured with a custom `base_url` for non-OpenAI providers. Model name from `LLM_MODEL` env var (default: `gemini-2.5-pro`). Uses topic-specific line limits from `feeds.toml`, defaulting to (50, 100)
+- **metrics.py** — `RunMetrics` and `TopicMetrics` dataclasses for per-run pipeline metrics. Serialized to JSON in `metrics/YYYY-MM-DD.json`. Same-day reruns overwrite
+- **dashboard.py** — Reads metrics JSON files, computes 7-day and 30-day summaries, renders a markdown table, and injects it into `README.md` between `<!-- DASHBOARD:START/END -->` markers. Runnable standalone: `uv run python -m src.dashboard`
 - **markdown_generator.py** — Writes `news-MM-DD-YY.md` to `daily-news/`, duplicates get `(2)` suffix
 - **utils.py** — Shared `EMOJI_PATTERN` regex used by both fetcher and markdown generator
 - **exceptions.py** — `NewsAggregatorError` base, `SummarizationError` for LLM failures
 - **feeds.toml** — User-editable topic/feed configuration loaded by `config.py` at startup
 
-## daily-news/ Output Pattern
+## daily-news/ and metrics/ Output Pattern
 
-The `daily-news/` directory is in `.gitignore` because local runs generate files there. In the GitHub Actions daily workflow (`daily-news.yml`), the generated markdown file is force-added with `git add -f daily-news/` so it appears in the PR diff. This lets the automated workflow commit generated output without polluting local development.
+Both `daily-news/` and `metrics/` directories are in `.gitignore` because local runs generate files there. In the GitHub Actions daily workflow (`daily-news.yml`), the generated files are force-added with `git add -f daily-news/ metrics/` so they appear in the PR diff. The workflow also runs `uv run python -m src.dashboard` to regenerate the README dashboard and commits `README.md` alongside the daily output.
 
 ## Dedup Threshold
 
@@ -72,6 +75,8 @@ Line length 100, double quotes, target py312. Lint rules: `E, F, I, W, UP, S, B`
 - Use `monkeypatch` for environment variables, not direct `os.environ`
 - Mock at the `httpx` level for RSS fetcher tests
 - Mock OpenAI client for summarizer tests
+- CLI tests mock `fetch_all_feeds` (returns `FetchResult`), `summarize_articles` (returns `SummarizeResult`), and `RunMetrics.save` to avoid file I/O
+- Dashboard tests use `tmp_path` for README injection and metrics loading
 
 ## Git Workflow
 
@@ -84,7 +89,7 @@ Daily-news PRs require manual merge. Dependabot PRs auto-merge (squash) once CI 
 ## GitHub Actions
 
 - **ci.yml** -- Runs lint, format check, type check, dependency audit, and tests on PRs/pushes to `dev`. Jobs: `lint-and-test`, `secrets-scan` (gitleaks, requires `GITLEAKS_LICENSE` repo secret)
-- **daily-news.yml** — Scheduled at 11:00 UTC (5 AM Central), creates `daily-news/YYYY-MM-DD` branch, generates news, and opens a PR (manual merge required)
+- **daily-news.yml** — Scheduled at 11:00 UTC (5 AM Central), creates `daily-news/YYYY-MM-DD` branch, generates news, updates the README dashboard from metrics, and opens a PR (manual merge required)
 - **dependabot-auto-merge.yml** — Auto-merges Dependabot patch/minor PRs. Triggers on all PRs but skips non-Dependabot actors via job condition
 
 ## Security

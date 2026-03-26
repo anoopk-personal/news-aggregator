@@ -1,4 +1,4 @@
-.PHONY: install test test-cov lint format typecheck audit run-ai run-cricket run-finance run-all clean install-hooks
+.PHONY: install test test-cov lint format typecheck audit run-ai run-cricket run-finance run-all dashboard clean install-hooks
 
 install:
 	uv sync
@@ -34,6 +34,9 @@ run-finance:
 
 run-all:
 	uv run get-news --topic all --skip-summarize
+
+dashboard:
+	uv run python -m src.dashboard
 
 install-hooks:
 	cp scripts/pre-commit .git/hooks/pre-commit
