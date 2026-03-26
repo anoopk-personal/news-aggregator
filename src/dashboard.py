@@ -62,6 +62,22 @@ def load_metrics(metrics_dir: Path = DEFAULT_METRICS_DIR) -> list[RunMetrics]:
     return metrics
 
 
+def _build_summary(label: str, runs: list[RunMetrics]) -> PeriodSummary:
+    """Build a PeriodSummary from a list of RunMetrics."""
+    return PeriodSummary(
+        label=label,
+        runs=len(runs),
+        articles_fetched=sum(m.total_articles_fetched for m in runs),
+        articles_after_dedup=sum(m.total_articles_after_dedup for m in runs),
+        feeds_total=sum(m.total_feeds for m in runs),
+        feeds_succeeded=sum(m.successful_feeds for m in runs),
+        prompt_tokens=sum(m.total_prompt_tokens for m in runs),
+        completion_tokens=sum(m.total_completion_tokens for m in runs),
+        total_tokens=sum(m.total_tokens for m in runs),
+        total_duration_seconds=sum(m.duration_seconds for m in runs),
+    )
+
+
 def compute_summary(
     metrics: list[RunMetrics],
     days: int,
@@ -73,19 +89,7 @@ def compute_summary(
     cutoff = reference - timedelta(days=days)
 
     filtered = [m for m in metrics if m.run_date >= cutoff.isoformat()]
-
-    return PeriodSummary(
-        label=label,
-        runs=len(filtered),
-        articles_fetched=sum(m.total_articles_fetched for m in filtered),
-        articles_after_dedup=sum(m.total_articles_after_dedup for m in filtered),
-        feeds_total=sum(m.total_feeds for m in filtered),
-        feeds_succeeded=sum(m.successful_feeds for m in filtered),
-        prompt_tokens=sum(m.total_prompt_tokens for m in filtered),
-        completion_tokens=sum(m.total_completion_tokens for m in filtered),
-        total_tokens=sum(m.total_tokens for m in filtered),
-        total_duration_seconds=sum(m.duration_seconds for m in filtered),
-    )
+    return _build_summary(label, filtered)
 
 
 def estimate_cost(prompt_tokens: int, completion_tokens: int, model: str) -> float:
@@ -132,6 +136,7 @@ def render_dashboard(
     """Render the dashboard markdown table."""
     summary_7 = compute_summary(metrics, days=7, label="7 days", today=today)
     summary_30 = compute_summary(metrics, days=30, label="30 days", today=today)
+    summary_all = _build_summary("All time", metrics)
 
     # Determine model for cost estimation from most recent run.
     model = "unknown"
@@ -140,7 +145,7 @@ def render_dashboard(
         model = most_recent.model
 
     rows = []
-    for summary in [summary_7, summary_30]:
+    for summary in [summary_7, summary_30, summary_all]:
         cost = estimate_cost(summary.prompt_tokens, summary.completion_tokens, model)
         rows.append(
             f"| **{summary.label}** | {summary.runs} "

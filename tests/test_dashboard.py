@@ -142,12 +142,14 @@ class TestRenderDashboard:
         assert "Pipeline Health" in dashboard
         assert "**7 days**" in dashboard
         assert "**30 days**" in dashboard
+        assert "**All time**" in dashboard
         assert "gemini-2.5-pro" in dashboard
 
     def test_empty_metrics(self):
         dashboard = render_dashboard([], today=date(2026, 3, 25))
         assert "**7 days**" in dashboard
         assert "**30 days**" in dashboard
+        assert "**All time**" in dashboard
 
     def test_cost_footnote_includes_model(self):
         metrics = [_sample_run("2026-03-25", model="gpt-4o")]

@@ -6,6 +6,17 @@
 A CLI tool that turns RSS feeds into concise daily markdown digests -- optionally summarized by an LLM. Ships with **AI**, **Cricket**, and **Finance** topics; add your own in a TOML file.
 
 <!-- DASHBOARD:START -->
+
+### Pipeline Health
+
+| | Runs | Articles | Feeds | Tokens | Cost | Avg time |
+|---|:---:|:---:|:---:|:---:|:---:|:---:|
+| **7 days** | 9 | 450 | 66% | 26k | $0.11 | 2.6m |
+| **30 days** | 32 | 1,410 | 67% | 26k | $0.11 | 2.2m |
+| **All time** | 41 | 1,740 | 67% | 26k | $0.11 | 2.2m |
+
+> Updated 2026-03-25 | Cost: $1.25/1M in + $10.0/1M out (`gemini-2.5-pro`)
+
 <!-- DASHBOARD:END -->
 
 ## Quick start
