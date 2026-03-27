@@ -32,6 +32,7 @@ class PeriodSummary:
     prompt_tokens: int
     completion_tokens: int
     total_tokens: int
+    total_cost: float
     total_duration_seconds: float
 
     @property
@@ -74,6 +75,7 @@ def _build_summary(label: str, runs: list[RunMetrics]) -> PeriodSummary:
         prompt_tokens=sum(m.total_prompt_tokens for m in runs),
         completion_tokens=sum(m.total_completion_tokens for m in runs),
         total_tokens=sum(m.total_tokens for m in runs),
+        total_cost=sum(m.total_cost for m in runs),
         total_duration_seconds=sum(m.duration_seconds for m in runs),
     )
 
@@ -90,14 +92,6 @@ def compute_summary(
 
     filtered = [m for m in metrics if m.run_date >= cutoff.isoformat()]
     return _build_summary(label, filtered)
-
-
-def estimate_cost(prompt_tokens: int, completion_tokens: int, model: str) -> float:
-    """Estimate USD cost based on token counts and model pricing."""
-    input_rate, output_rate = MODEL_COST_PER_MILLION_TOKENS.get(
-        model, DEFAULT_COST_PER_MILLION_TOKENS
-    )
-    return (prompt_tokens * input_rate + completion_tokens * output_rate) / 1_000_000
 
 
 def _format_number(value: int) -> str:
@@ -121,12 +115,12 @@ def _format_duration(seconds: float) -> str:
 
 
 def _format_cost(cost: float) -> str:
-    """Format cost as a dollar amount, showing fractional cents when needed."""
+    """Format cost as a dollar amount with actual precision (no rounding)."""
     if cost == 0:
         return "$0.00"
-    if cost < 0.01:
-        return f"${cost:.4f}"
-    return f"${cost:.2f}"
+    integer_part, decimal_part = f"{cost:.4f}".split(".")
+    decimal_part = decimal_part.rstrip("0").ljust(2, "0")
+    return f"${integer_part}.{decimal_part}"
 
 
 def render_dashboard(
@@ -138,7 +132,7 @@ def render_dashboard(
     summary_30 = compute_summary(metrics, days=30, label="30 days", today=today)
     summary_all = _build_summary("All time", metrics)
 
-    # Determine model for cost estimation from most recent run.
+    # Determine model for cost footnote from most recent run.
     model = "unknown"
     if metrics:
         most_recent = max(metrics, key=lambda m: m.run_date)
@@ -146,13 +140,12 @@ def render_dashboard(
 
     rows = []
     for summary in [summary_7, summary_30, summary_all]:
-        cost = estimate_cost(summary.prompt_tokens, summary.completion_tokens, model)
         rows.append(
             f"| **{summary.label}** | {summary.runs} "
             f"| {_format_number(summary.articles_fetched)} "
             f"| {summary.feed_success_rate:.0f}% "
             f"| {_format_tokens(summary.total_tokens)} "
-            f"| {_format_cost(cost)} "
+            f"| {_format_cost(summary.total_cost)} "
             f"| {_format_duration(summary.avg_duration_seconds)} |"
         )
 

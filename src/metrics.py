@@ -6,7 +6,17 @@ from dataclasses import asdict, dataclass, field, fields
 from datetime import UTC, datetime
 from pathlib import Path
 
+from .config import DEFAULT_COST_PER_MILLION_TOKENS, MODEL_COST_PER_MILLION_TOKENS
+
 logger = logging.getLogger(__name__)
+
+
+def estimate_cost(prompt_tokens: int, completion_tokens: int, model: str) -> float:
+    """Estimate USD cost based on token counts and model pricing."""
+    input_rate, output_rate = MODEL_COST_PER_MILLION_TOKENS.get(
+        model, DEFAULT_COST_PER_MILLION_TOKENS
+    )
+    return (prompt_tokens * input_rate + completion_tokens * output_rate) / 1_000_000
 
 
 @dataclass
@@ -23,6 +33,7 @@ class TopicMetrics:
     completion_tokens: int = 0
     total_tokens: int = 0
     error: str | None = None
+    cost: float = 0.0
 
 
 @dataclass
@@ -66,6 +77,10 @@ class RunMetrics:
         return sum(t.feeds_succeeded for t in self.topics)
 
     @property
+    def total_cost(self) -> float:
+        return sum(t.cost for t in self.topics)
+
+    @property
     def topic_errors(self) -> int:
         return sum(1 for t in self.topics if t.error is not None)
 
@@ -79,6 +94,7 @@ class RunMetrics:
         data["total_completion_tokens"] = self.total_completion_tokens
         data["total_feeds"] = self.total_feeds
         data["successful_feeds"] = self.successful_feeds
+        data["total_cost"] = self.total_cost
         data["topic_errors"] = self.topic_errors
         return data
 
@@ -98,7 +114,11 @@ class RunMetrics:
     def from_json(cls, text: str) -> "RunMetrics":
         """Deserialize from a JSON string."""
         data = json.loads(text)
-        topics = [TopicMetrics(**t) for t in data.pop("topics", [])]
+        topic_keys = {f.name for f in fields(TopicMetrics)}
+        topics = [
+            TopicMetrics(**{k: v for k, v in t.items() if k in topic_keys})
+            for t in data.pop("topics", [])
+        ]
         # Only pass keys that match actual constructor fields (ignore computed aggregates
         # and any future keys that may appear in newer JSON versions).
         valid_keys = {f.name for f in fields(cls)} - {"topics"}

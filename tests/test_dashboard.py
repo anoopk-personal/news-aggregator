@@ -7,8 +7,8 @@ import pytest
 from src.dashboard import (
     DASHBOARD_END,
     DASHBOARD_START,
+    _format_cost,
     compute_summary,
-    estimate_cost,
     load_metrics,
     render_dashboard,
     update_readme,
@@ -35,6 +35,7 @@ def _sample_run(run_date: str, **overrides) -> RunMetrics:
                 prompt_tokens=10000,
                 completion_tokens=5000,
                 total_tokens=15000,
+                cost=0.0625,
             ),
         ],
     }
@@ -105,32 +106,26 @@ class TestComputeSummary:
         assert summary.feed_success_rate == pytest.approx(88.9, abs=0.1)
 
 
-class TestEstimateCost:
-    def test_known_model(self):
-        cost = estimate_cost(
-            prompt_tokens=1_000_000,
-            completion_tokens=500_000,
-            model="gemini-2.5-pro",
-        )
-        # 1M * $1.25/1M + 500k * $10.00/1M = $1.25 + $5.00 = $6.25
-        assert cost == pytest.approx(6.25)
+class TestFormatCost:
+    def test_zero_cost(self):
+        assert _format_cost(0) == "$0.00"
 
-    def test_unknown_model_uses_default(self):
-        cost = estimate_cost(
-            prompt_tokens=1_000_000,
-            completion_tokens=1_000_000,
-            model="some-new-model",
-        )
-        # 1M * $1.00/1M + 1M * $3.00/1M = $4.00
-        assert cost == pytest.approx(4.0)
+    def test_shows_actual_precision(self):
+        assert _format_cost(0.2912) == "$0.2912"
 
-    def test_zero_tokens(self):
-        cost = estimate_cost(prompt_tokens=0, completion_tokens=0, model="gemini-2.5-pro")
-        assert cost == 0.0
+    def test_sub_cent_precision(self):
+        assert _format_cost(0.009) == "$0.009"
 
-    def test_local_model_free(self):
-        cost = estimate_cost(prompt_tokens=100000, completion_tokens=50000, model="llama3")
-        assert cost == 0.0
+    def test_even_dollar_keeps_two_decimals(self):
+        assert _format_cost(1.50) == "$1.50"
+
+    def test_small_fraction(self):
+        assert _format_cost(0.0015) == "$0.0015"
+
+    def test_aggregates_stored_cost(self):
+        metrics = [_sample_run("2026-03-25"), _sample_run("2026-03-24")]
+        summary = compute_summary(metrics, days=7, label="Test", today=date(2026, 3, 25))
+        assert summary.total_cost == pytest.approx(0.125)
 
 
 class TestRenderDashboard:

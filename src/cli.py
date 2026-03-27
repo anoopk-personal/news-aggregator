@@ -18,7 +18,7 @@ from .config import (
 from .deduplicator import deduplicate_articles
 from .exceptions import NewsAggregatorError, SummarizationError
 from .markdown_generator import get_output_path, write_markdown
-from .metrics import RunMetrics, TopicMetrics
+from .metrics import RunMetrics, TopicMetrics, estimate_cost
 from .rss_fetcher import Article, fetch_all_feeds
 from .summarizer import summarize_articles
 
@@ -129,6 +129,7 @@ def main(
                     tm.prompt_tokens = summarize_result.prompt_tokens
                     tm.completion_tokens = summarize_result.completion_tokens
                     tm.total_tokens = summarize_result.total_tokens
+                    tm.cost = estimate_cost(tm.prompt_tokens, tm.completion_tokens, model)
                 all_summaries.append(summary)
         except (NewsAggregatorError, SummarizationError) as e:
             logger.error("Error fetching %s: %s", t, e)

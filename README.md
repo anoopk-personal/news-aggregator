@@ -2,8 +2,19 @@
 
 [![CI](https://github.com/anoopk-personal/news-aggregator/actions/workflows/ci.yml/badge.svg)](https://github.com/anoopk-personal/news-aggregator/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+[![Python 3.12](https://img.shields.io/badge/python-3.12-blue.svg)](https://www.python.org/downloads/)
 
-A CLI tool that turns RSS feeds into concise daily markdown digests -- optionally summarized by an LLM. Ships with **AI**, **Cricket**, and **Finance** topics; add your own in a TOML file.
+Get a daily briefing on **AI**, **Cricket**, and **Finance** -- from 40+ sources, distilled into one readable page. Add your own topics in a TOML file. Optionally powered by any OpenAI-compatible LLM (Ollama, OpenAI, OpenRouter, etc.) for intelligent summaries.
+
+**Sample output** (from a real daily run):
+
+> ### New Models & Major Research
+>
+> **Google Previews Gemini 3.1 Flash Live for Real-Time Interaction**
+> Google has released Gemini 3.1 Flash Live in a developer preview, describing it as its
+> highest-quality audio and speech model for real-time, low-latency interactions. The model
+> natively processes multimodal streams and supports tool use, providing a foundation for
+> building more natural AI agents and voice interfaces. *(Source: Google, MarkTechPost)*
 
 <!-- DASHBOARD:START -->
 
@@ -30,44 +41,7 @@ uv sync
 uv run get-news --topic ai --skip-summarize --dry-run   # no API key needed
 ```
 
-## LLM setup
-
-To enable LLM-powered summaries, copy `.env.example` to `.env` and uncomment the block for your provider:
-
-```bash
-cp .env.example .env
-# Edit .env -- uncomment one provider block, fill in your values
-```
-
-**Local (Ollama -- free, runs on your machine):**
-
-1. [Install Ollama](https://ollama.com/download) (Mac, Linux, or Windows)
-2. Pull a model: `ollama pull llama3`
-3. In `.env`, uncomment the Ollama block:
-   ```
-   LLM_BASE_URL=http://localhost:11434/v1
-   LLM_MODEL=llama3
-   ```
-4. Run: `uv run get-news --topic ai --dry-run`
-
-**Online (OpenAI, OpenRouter, LiteLLM, or any OpenAI-compatible API):**
-
-1. Get an API key from your provider
-2. In `.env`, uncomment the matching block and paste your key:
-   ```
-   LLM_API_KEY=sk-your-key-here
-   LLM_MODEL=gpt-4o
-   ```
-   For providers with a custom endpoint (OpenRouter, LiteLLM), also set `LLM_BASE_URL`.
-3. Run: `uv run get-news --topic ai --dry-run`
-
-**CLI flags:**
-
-- `--topic` -- required; any topic defined in `feeds.toml` (`ai`, `cricket`, `finance`), or `all` for all topics
-- `--output-dir` -- output directory (default: `daily-news/`)
-- `--skip-summarize` -- bypass the LLM, list raw articles
-- `--skip-dedup` -- skip article deduplication
-- `--dry-run` -- print to stdout, do not write files or metrics
+Want LLM-powered summaries instead of raw article listings? See the [LLM setup guide](docs/llm-setup.md) -- works with Ollama (free, local) or any cloud provider.
 
 ## Custom topics
 
@@ -84,22 +58,24 @@ line_limits = [50, 100]   # min/max lines for the LLM summary
 
 ## Development
 
+**Stack:** Python 3.12, uv, ruff, mypy, pytest, httpx, Click
+
 | Command | What it does |
 |---------|-------------|
 | `make install` | Install dependencies (`uv sync`) |
-| `make test` | Run tests |
-| `make lint` | Lint + format check (ruff) |
+| `make test` | Run tests (`pytest`) |
+| `make test-cov` | Tests with 80% coverage gate |
+| `make lint` | Lint + format check (`ruff`) |
+| `make typecheck` | Type check (`mypy`) |
 | `make format` | Auto-fix lint issues |
-
-Other targets: `make test-cov` (80% coverage gate), `make typecheck`, `make audit`, `make install-hooks`, `make dashboard`.
 
 Run a single test: `uv run pytest tests/test_rss_fetcher.py::test_name -v`
 
 ## Automation
 
-A GitHub Actions workflow runs daily at 11:00 UTC and opens a PR with the generated digest. Each run captures pipeline metrics (article counts, feed health, token usage, duration) to `metrics/` and updates the Pipeline Health dashboard at the top of this README. Dependabot keeps dependencies current with weekly PRs.
+A GitHub Actions workflow runs daily at 11:00 UTC and opens a PR with the generated digest. Each run captures pipeline metrics (article counts, feed health, token usage, cost) and updates the dashboard above. Dependabot keeps dependencies current with weekly PRs.
 
-**Forking?** Add `LLM_API_KEY`, `LLM_BASE_URL`, and `PAT_TOKEN` as [repository secrets](https://docs.github.com/en/actions/security-for-github-actions/security-guides/using-secrets-in-github-actions). Optionally set `LLM_MODEL` if you use a different model than the default (`gemini-2.5-pro`).
+**Forking?** See the [LLM setup guide](docs/llm-setup.md#forking-this-repo) for required repository secrets.
 
 ## Security
 

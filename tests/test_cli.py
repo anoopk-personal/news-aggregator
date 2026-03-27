@@ -7,6 +7,7 @@ from click.testing import CliRunner
 
 from src.cli import main
 from src.exceptions import NewsAggregatorError
+from src.metrics import TopicMetrics
 from src.rss_fetcher import Article, FetchResult
 from src.summarizer import SummarizeResult
 
@@ -244,3 +245,43 @@ def test_cli_collects_topic_metrics(
 
     assert result.exit_code == 0
     mock_save_metrics.assert_called_once()
+
+
+@patch("src.cli.RunMetrics.create_now")
+@patch("src.cli.fetch_all_feeds")
+@patch("src.cli.summarize_articles")
+@patch("src.cli.write_markdown")
+def test_cli_computes_per_topic_cost(
+    mock_write_markdown,
+    mock_summarize_articles,
+    mock_fetch_all_feeds,
+    mock_create_now,
+):
+    """Verify that per-topic cost is computed from token counts and model."""
+    articles = _make_articles(1)
+    mock_fetch_all_feeds.return_value = FetchResult(
+        articles=articles,
+        feeds_total=3,
+        feeds_succeeded=2,
+        feeds_failed=1,
+    )
+    mock_summarize_articles.return_value = SummarizeResult(
+        content="Summary",
+        prompt_tokens=10000,
+        completion_tokens=5000,
+        total_tokens=15000,
+    )
+    mock_run = mock_create_now.return_value
+    mock_run.save.return_value = None
+
+    runner = CliRunner()
+    result = runner.invoke(main, ["--topic", "ai", "--skip-dedup"])
+
+    assert result.exit_code == 0
+    mock_create_now.assert_called_once()
+    topics_arg = mock_create_now.call_args[1]["topics"]
+    assert len(topics_arg) == 1
+    topic: TopicMetrics = topics_arg[0]
+    assert topic.prompt_tokens == 10000
+    assert topic.completion_tokens == 5000
+    assert topic.cost > 0
