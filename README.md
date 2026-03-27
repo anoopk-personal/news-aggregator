@@ -11,11 +11,11 @@ A CLI tool that turns RSS feeds into concise daily markdown digests -- optionall
 
 | | Runs | Articles | Feeds | Tokens | Cost | Avg time |
 |---|:---:|:---:|:---:|:---:|:---:|:---:|
-| **7 days** | 8 | 408 | 66% | 28k | $0.14 | 2.3m |
-| **30 days** | 31 | 1,364 | 67% | 28k | $0.14 | 2.2m |
-| **All time** | 41 | 1,742 | 67% | 28k | $0.14 | 2.2m |
+| **7 days** | 8 | 499 | 66% | 59k | $0.29 | 2.3m |
+| **30 days** | 31 | 1,445 | 67% | 59k | $0.29 | 2.2m |
+| **All time** | 42 | 1,871 | 67% | 59k | $0.29 | 2.2m |
 
-> Updated 2026-03-26 | Cost: $1.25/1M in + $10.0/1M out (`gemini-2.5-pro`)
+> Updated 2026-03-27 | Cost: $1.25/1M in + $10.0/1M out (`gemini-2.5-pro`)
 
 <!-- DASHBOARD:END -->
 
