@@ -58,8 +58,7 @@ jobs:
 
       - name: Audit dependencies
         # CVE-2026-4539: pygments (transitive via pip-audit->rich), no fix available yet
-        # CVE-2026-25645: requests 2.32.5 (transitive via pip-audit->cachecontrol), fix: 2.33.0
-        run: uv run pip-audit --ignore-vuln CVE-2026-4539 --ignore-vuln CVE-2026-25645
+        run: uv run pip-audit --ignore-vuln CVE-2026-4539
 
       - name: Run tests
         run: uv run pytest -v --cov=src --cov-report=term-missing --cov-fail-under=80

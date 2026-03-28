@@ -20,11 +20,11 @@ Get a daily briefing on **AI**, **Cricket**, and **Finance** -- from 40+ sources
 
 ### Pipeline Health
 
-| | Runs | Articles | Feeds | Tokens | Cost | Avg time |
+| | Runs | Articles | Feeds | Tokens | Cost | Errors |
 |---|:---:|:---:|:---:|:---:|:---:|:---:|
-| **7 days** | 8 | 499 | 66% | 59k | $0.29 | 2.3m |
-| **30 days** | 31 | 1,445 | 67% | 59k | $0.29 | 2.2m |
-| **All time** | 42 | 1,871 | 67% | 59k | $0.29 | 2.2m |
+| **Last run** | 1 | 129 | 64% | 31k | $0.00 | 0 |
+| **30 days** | 31 | 1,445 | 67% | 59k | $0.00 | 0 |
+| **All time** | 42 | 1,871 | 67% | 59k | $0.00 | 0 |
 
 > Updated 2026-03-27 | Cost: $1.25/1M in + $10.0/1M out (`gemini-2.5-pro`)
 

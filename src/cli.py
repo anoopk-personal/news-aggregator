@@ -89,7 +89,7 @@ def main(
     if not skip_summarize:
         try:
             _, _, model = get_llm_config()
-        except Exception:
+        except (NewsAggregatorError, SummarizationError):
             model = LLM_MODEL_DEFAULT
     else:
         model = LLM_MODEL_DEFAULT

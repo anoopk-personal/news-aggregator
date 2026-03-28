@@ -33,19 +33,13 @@ class PeriodSummary:
     completion_tokens: int
     total_tokens: int
     total_cost: float
-    total_duration_seconds: float
+    topic_errors: int
 
     @property
     def feed_success_rate(self) -> float:
         if self.feeds_total == 0:
             return 0.0
         return self.feeds_succeeded / self.feeds_total * 100
-
-    @property
-    def avg_duration_seconds(self) -> float:
-        if self.runs == 0:
-            return 0.0
-        return self.total_duration_seconds / self.runs
 
 
 def load_metrics(metrics_dir: Path = DEFAULT_METRICS_DIR) -> list[RunMetrics]:
@@ -76,7 +70,7 @@ def _build_summary(label: str, runs: list[RunMetrics]) -> PeriodSummary:
         completion_tokens=sum(m.total_completion_tokens for m in runs),
         total_tokens=sum(m.total_tokens for m in runs),
         total_cost=sum(m.total_cost for m in runs),
-        total_duration_seconds=sum(m.duration_seconds for m in runs),
+        topic_errors=sum(m.topic_errors for m in runs),
     )
 
 
@@ -106,14 +100,6 @@ def _format_tokens(total_tokens: int) -> str:
     return f"{total_tokens / 1000:,.0f}k"
 
 
-def _format_duration(seconds: float) -> str:
-    """Format duration as a human-readable string."""
-    if seconds < 60:
-        return f"{seconds:.0f}s"
-    minutes = seconds / 60
-    return f"{minutes:.1f}m"
-
-
 def _format_cost(cost: float) -> str:
     """Format cost as a dollar amount with actual precision (no rounding)."""
     if cost == 0:
@@ -123,12 +109,32 @@ def _format_cost(cost: float) -> str:
     return f"${integer_part}.{decimal_part}"
 
 
+def _build_last_run_summary(metrics: list[RunMetrics]) -> PeriodSummary:
+    """Build a PeriodSummary from the single most recent run."""
+    if not metrics:
+        return PeriodSummary(
+            label="Last run",
+            runs=0,
+            articles_fetched=0,
+            articles_after_dedup=0,
+            feeds_total=0,
+            feeds_succeeded=0,
+            prompt_tokens=0,
+            completion_tokens=0,
+            total_tokens=0,
+            total_cost=0.0,
+            topic_errors=0,
+        )
+    most_recent = max(metrics, key=lambda m: m.run_date)
+    return _build_summary("Last run", [most_recent])
+
+
 def render_dashboard(
     metrics: list[RunMetrics],
     today: date | None = None,
 ) -> str:
     """Render the dashboard markdown table."""
-    summary_7 = compute_summary(metrics, days=7, label="7 days", today=today)
+    summary_last = _build_last_run_summary(metrics)
     summary_30 = compute_summary(metrics, days=30, label="30 days", today=today)
     summary_all = _build_summary("All time", metrics)
 
@@ -139,14 +145,14 @@ def render_dashboard(
         model = most_recent.model
 
     rows = []
-    for summary in [summary_7, summary_30, summary_all]:
+    for summary in [summary_last, summary_30, summary_all]:
         rows.append(
             f"| **{summary.label}** | {summary.runs} "
             f"| {_format_number(summary.articles_fetched)} "
             f"| {summary.feed_success_rate:.0f}% "
             f"| {_format_tokens(summary.total_tokens)} "
             f"| {_format_cost(summary.total_cost)} "
-            f"| {_format_duration(summary.avg_duration_seconds)} |"
+            f"| {summary.topic_errors} |"
         )
 
     input_rate, output_rate = MODEL_COST_PER_MILLION_TOKENS.get(
@@ -160,7 +166,7 @@ def render_dashboard(
             "",
             "### Pipeline Health",
             "",
-            "| | Runs | Articles | Feeds | Tokens | Cost | Avg time |",
+            "| | Runs | Articles | Feeds | Tokens | Cost | Errors |",
             "|---|:---:|:---:|:---:|:---:|:---:|:---:|",
             *rows,
             "",

@@ -7,6 +7,7 @@ import pytest
 from src.dashboard import (
     DASHBOARD_END,
     DASHBOARD_START,
+    _build_last_run_summary,
     _format_cost,
     compute_summary,
     load_metrics,
@@ -91,7 +92,7 @@ class TestComputeSummary:
         assert summary.runs == 0
         assert summary.articles_fetched == 0
         assert summary.feed_success_rate == 0.0
-        assert summary.avg_duration_seconds == 0.0
+        assert summary.topic_errors == 0
 
     def test_aggregates_tokens(self):
         metrics = [_sample_run("2026-03-25"), _sample_run("2026-03-24")]
@@ -128,6 +129,32 @@ class TestFormatCost:
         assert summary.total_cost == pytest.approx(0.125)
 
 
+class TestBuildLastRunSummary:
+    def test_uses_most_recent_run(self):
+        metrics = [_sample_run("2026-03-20"), _sample_run("2026-03-25")]
+        summary = _build_last_run_summary(metrics)
+        assert summary.label == "Last run"
+        assert summary.runs == 1
+        assert summary.articles_fetched == 60
+
+    def test_empty_metrics(self):
+        summary = _build_last_run_summary([])
+        assert summary.label == "Last run"
+        assert summary.runs == 0
+        assert summary.articles_fetched == 0
+        assert summary.total_cost == 0.0
+        assert summary.topic_errors == 0
+
+    def test_counts_errors_from_last_run(self):
+        error_topics = [
+            TopicMetrics(topic="ai", error="feed failure"),
+            TopicMetrics(topic="cricket"),
+        ]
+        metrics = [_sample_run("2026-03-25", topics=error_topics)]
+        summary = _build_last_run_summary(metrics)
+        assert summary.topic_errors == 1
+
+
 class TestRenderDashboard:
     def test_produces_markdown_table(self):
         metrics = [_sample_run("2026-03-25"), _sample_run("2026-03-20")]
@@ -135,14 +162,16 @@ class TestRenderDashboard:
         assert DASHBOARD_START in dashboard
         assert DASHBOARD_END in dashboard
         assert "Pipeline Health" in dashboard
-        assert "**7 days**" in dashboard
+        assert "**Last run**" in dashboard
         assert "**30 days**" in dashboard
         assert "**All time**" in dashboard
+        assert "Errors" in dashboard
+        assert "Avg time" not in dashboard
         assert "gemini-2.5-pro" in dashboard
 
     def test_empty_metrics(self):
         dashboard = render_dashboard([], today=date(2026, 3, 25))
-        assert "**7 days**" in dashboard
+        assert "**Last run**" in dashboard
         assert "**30 days**" in dashboard
         assert "**All time**" in dashboard
 
@@ -151,6 +180,16 @@ class TestRenderDashboard:
         dashboard = render_dashboard(metrics, today=date(2026, 3, 25))
         assert "`gpt-4o`" in dashboard
         assert "$2.5/1M in" in dashboard
+
+    def test_errors_column_shows_topic_errors(self):
+        error_topics = [
+            TopicMetrics(topic="ai", error="timeout"),
+            TopicMetrics(topic="cricket", error="dns failure"),
+            TopicMetrics(topic="finance"),
+        ]
+        metrics = [_sample_run("2026-03-25", topics=error_topics)]
+        dashboard = render_dashboard(metrics, today=date(2026, 3, 25))
+        assert "| 2 |" in dashboard
 
 
 class TestUpdateReadme:
