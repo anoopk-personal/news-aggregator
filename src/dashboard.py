@@ -33,7 +33,6 @@ class PeriodSummary:
     completion_tokens: int
     total_tokens: int
     total_cost: float
-    topic_errors: int
 
     @property
     def feed_success_rate(self) -> float:
@@ -70,7 +69,6 @@ def _build_summary(label: str, runs: list[RunMetrics]) -> PeriodSummary:
         completion_tokens=sum(m.total_completion_tokens for m in runs),
         total_tokens=sum(m.total_tokens for m in runs),
         total_cost=sum(m.total_cost for m in runs),
-        topic_errors=sum(m.topic_errors for m in runs),
     )
 
 
@@ -123,7 +121,6 @@ def _build_last_run_summary(metrics: list[RunMetrics]) -> PeriodSummary:
             completion_tokens=0,
             total_tokens=0,
             total_cost=0.0,
-            topic_errors=0,
         )
     most_recent = max(metrics, key=lambda m: m.run_date)
     return _build_summary("Last run", [most_recent])
@@ -151,8 +148,7 @@ def render_dashboard(
             f"| {_format_number(summary.articles_fetched)} "
             f"| {summary.feed_success_rate:.0f}% "
             f"| {_format_tokens(summary.total_tokens)} "
-            f"| {_format_cost(summary.total_cost)} "
-            f"| {summary.topic_errors} |"
+            f"| {_format_cost(summary.total_cost)} |"
         )
 
     input_rate, output_rate = MODEL_COST_PER_MILLION_TOKENS.get(
@@ -166,8 +162,8 @@ def render_dashboard(
             "",
             "### Pipeline Health",
             "",
-            "| | Runs | Articles | Feeds | Tokens | Cost | Errors |",
-            "|---|:---:|:---:|:---:|:---:|:---:|:---:|",
+            "| | Runs | Articles | Feeds | Tokens | Cost |",
+            "|---|:---:|:---:|:---:|:---:|:---:|",
             *rows,
             "",
             f"> Updated {reference.isoformat()}"

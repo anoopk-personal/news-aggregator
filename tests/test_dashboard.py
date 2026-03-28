@@ -92,7 +92,6 @@ class TestComputeSummary:
         assert summary.runs == 0
         assert summary.articles_fetched == 0
         assert summary.feed_success_rate == 0.0
-        assert summary.topic_errors == 0
 
     def test_aggregates_tokens(self):
         metrics = [_sample_run("2026-03-25"), _sample_run("2026-03-24")]
@@ -143,16 +142,6 @@ class TestBuildLastRunSummary:
         assert summary.runs == 0
         assert summary.articles_fetched == 0
         assert summary.total_cost == 0.0
-        assert summary.topic_errors == 0
-
-    def test_counts_errors_from_last_run(self):
-        error_topics = [
-            TopicMetrics(topic="ai", error="feed failure"),
-            TopicMetrics(topic="cricket"),
-        ]
-        metrics = [_sample_run("2026-03-25", topics=error_topics)]
-        summary = _build_last_run_summary(metrics)
-        assert summary.topic_errors == 1
 
 
 class TestRenderDashboard:
@@ -165,7 +154,7 @@ class TestRenderDashboard:
         assert "**Last run**" in dashboard
         assert "**30 days**" in dashboard
         assert "**All time**" in dashboard
-        assert "Errors" in dashboard
+        assert "Errors" not in dashboard
         assert "Avg time" not in dashboard
         assert "gemini-2.5-pro" in dashboard
 
@@ -180,16 +169,6 @@ class TestRenderDashboard:
         dashboard = render_dashboard(metrics, today=date(2026, 3, 25))
         assert "`gpt-4o`" in dashboard
         assert "$2.5/1M in" in dashboard
-
-    def test_errors_column_shows_topic_errors(self):
-        error_topics = [
-            TopicMetrics(topic="ai", error="timeout"),
-            TopicMetrics(topic="cricket", error="dns failure"),
-            TopicMetrics(topic="finance"),
-        ]
-        metrics = [_sample_run("2026-03-25", topics=error_topics)]
-        dashboard = render_dashboard(metrics, today=date(2026, 3, 25))
-        assert "| 2 |" in dashboard
 
 
 class TestUpdateReadme:
