@@ -26,7 +26,7 @@ Get a daily briefing on **AI**, **Cricket**, and **Finance** -- from 40+ sources
 | **30 days** | 31 | 1,445 | 67% | 59k | $0.00 | 0 |
 | **All time** | 42 | 1,871 | 67% | 59k | $0.00 | 0 |
 
-> Updated 2026-03-27 | Cost: $1.25/1M in + $10.0/1M out (`gemini-2.5-pro`)
+> Updated 2026-03-28 | Cost: $1.25/1M in + $10.0/1M out (`gemini-2.5-pro`)
 
 <!-- DASHBOARD:END -->
 
