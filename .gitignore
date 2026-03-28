@@ -29,9 +29,8 @@ htmlcov/
 # UV
 .uv/
 
-# Output (force-added in CI workflow with git add -f)
+# Output (daily-news/ force-added in CI; metrics/ tracked normally)
 daily-news/
-metrics/
 
 # OS
 .DS_Store

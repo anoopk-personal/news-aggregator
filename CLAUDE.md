@@ -48,7 +48,7 @@ Run a single test: `uv run pytest tests/test_rss_fetcher.py::test_sanitize_remov
 
 ## daily-news/ and metrics/ Output Pattern
 
-Both `daily-news/` and `metrics/` directories are in `.gitignore` because local runs generate files there. In the GitHub Actions daily workflow (`daily-news.yml`), the generated files are force-added with `git add -f daily-news/ metrics/` so they appear in the PR diff. The workflow also runs `uv run python -m src.dashboard` to regenerate the README dashboard and commits `README.md` alongside the daily output.
+`daily-news/` is in `.gitignore` because the generated markdown files are large. In the GitHub Actions daily workflow (`daily-news.yml`), daily-news files are force-added with `git add -f daily-news/`. `metrics/` is tracked normally in git so that metrics data survives non-daily PR merges. Local `make run-*` commands generate metrics files that appear in `git status` -- do not commit these locally. The workflow also runs `uv run python -m src.dashboard` to regenerate the README dashboard and commits `README.md` alongside the daily output.
 
 ## Dedup Threshold
 
