@@ -29,8 +29,10 @@ htmlcov/
 # UV
 .uv/
 
-# Output (daily-news/ force-added in CI; metrics/ tracked normally)
+# Output (daily-news/ force-added in CI; metrics/history.jsonl tracked normally)
 daily-news/
+metrics/*.json
+metrics/*.json.local
 
 # OS
 .DS_Store

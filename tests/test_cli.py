@@ -46,7 +46,7 @@ def _make_summarize_result(content: str = "Test summary") -> SummarizeResult:
     )
 
 
-@patch("src.cli.RunMetrics.save")
+@patch("src.cli.RunMetrics.save_jsonl")
 @patch("src.cli.fetch_all_feeds")
 @patch("src.cli.deduplicate_articles")
 @patch("src.cli.summarize_articles")
@@ -56,7 +56,7 @@ def test_cli_full_pipeline(
     mock_summarize_articles,
     mock_deduplicate,
     mock_fetch_all_feeds,
-    mock_save_metrics,
+    mock_save_jsonl,
 ):
     """Full pipeline: fetch -> dedup -> summarize -> write."""
     articles = _make_articles(2)
@@ -74,13 +74,13 @@ def test_cli_full_pipeline(
     mock_deduplicate.assert_called_once()
     mock_summarize_articles.assert_called_once()
     mock_write_markdown.assert_called_once()
-    mock_save_metrics.assert_called_once()
+    mock_save_jsonl.assert_called_once()
 
 
-@patch("src.cli.RunMetrics.save")
+@patch("src.cli.RunMetrics.save_jsonl")
 @patch("src.cli.fetch_all_feeds")
 @patch("src.cli.write_markdown")
-def test_cli_no_articles(mock_write_markdown, mock_fetch_all_feeds, mock_save_metrics):
+def test_cli_no_articles(mock_write_markdown, mock_fetch_all_feeds, mock_save_jsonl):
     """No articles found produces 'No articles found.' and no file write."""
     mock_fetch_all_feeds.return_value = _make_fetch_result([])
 
@@ -92,7 +92,7 @@ def test_cli_no_articles(mock_write_markdown, mock_fetch_all_feeds, mock_save_me
     mock_write_markdown.assert_not_called()
 
 
-@patch("src.cli.RunMetrics.save")
+@patch("src.cli.RunMetrics.save_jsonl")
 @patch("src.cli.fetch_all_feeds")
 @patch("src.cli.deduplicate_articles")
 @patch("src.cli.summarize_articles")
@@ -102,7 +102,7 @@ def test_cli_skip_summarize_formats_articles_as_markdown(
     mock_summarize_articles,
     mock_deduplicate,
     mock_fetch_all_feeds,
-    mock_save_metrics,
+    mock_save_jsonl,
 ):
     """--skip-summarize bypasses LLM and produces plain markdown listing."""
     articles = _make_articles(1)
@@ -142,7 +142,7 @@ def test_cli_dry_run_prints_to_stdout_without_writing(
     mock_write_markdown.assert_not_called()
 
 
-@patch("src.cli.RunMetrics.save")
+@patch("src.cli.RunMetrics.save_jsonl")
 @patch("src.cli.fetch_all_feeds")
 @patch("src.cli.deduplicate_articles")
 @patch("src.cli.summarize_articles")
@@ -152,7 +152,7 @@ def test_cli_skip_dedup_bypasses_deduplication(
     mock_summarize_articles,
     mock_deduplicate,
     mock_fetch_all_feeds,
-    mock_save_metrics,
+    mock_save_jsonl,
 ):
     """--skip-dedup bypasses deduplication entirely."""
     articles = _make_articles(1)
@@ -168,7 +168,7 @@ def test_cli_skip_dedup_bypasses_deduplication(
 
 
 @patch("src.cli.FEEDS", {"ai": ["https://a.com/f"], "cricket": ["https://b.com/f"]})
-@patch("src.cli.RunMetrics.save")
+@patch("src.cli.RunMetrics.save_jsonl")
 @patch("src.cli.fetch_all_feeds")
 @patch("src.cli.deduplicate_articles")
 @patch("src.cli.summarize_articles")
@@ -178,7 +178,7 @@ def test_cli_continues_after_topic_error(
     mock_summarize_articles,
     mock_deduplicate,
     mock_fetch_all_feeds,
-    mock_save_metrics,
+    mock_save_jsonl,
 ):
     """A failing topic should not crash the run; remaining topics still produce output."""
     cricket_articles = _make_articles(1)
@@ -197,13 +197,13 @@ def test_cli_continues_after_topic_error(
     mock_write_markdown.assert_called_once()
 
 
-@patch("src.cli.RunMetrics.save")
+@patch("src.cli.RunMetrics.save_jsonl")
 @patch("src.cli.fetch_all_feeds")
 @patch("src.cli.write_markdown")
 def test_cli_exits_nonzero_when_all_topics_fail(
     mock_write_markdown,
     mock_fetch_all_feeds,
-    mock_save_metrics,
+    mock_save_jsonl,
 ):
     """Exit code 1 when all topics fail with errors (not just empty feeds)."""
     mock_fetch_all_feeds.side_effect = NewsAggregatorError("feeds unavailable")
@@ -215,7 +215,7 @@ def test_cli_exits_nonzero_when_all_topics_fail(
     mock_write_markdown.assert_not_called()
 
 
-@patch("src.cli.RunMetrics.save")
+@patch("src.cli.RunMetrics.save_jsonl")
 @patch("src.cli.fetch_all_feeds")
 @patch("src.cli.summarize_articles")
 @patch("src.cli.write_markdown")
@@ -223,9 +223,9 @@ def test_cli_collects_topic_metrics(
     mock_write_markdown,
     mock_summarize_articles,
     mock_fetch_all_feeds,
-    mock_save_metrics,
+    mock_save_jsonl,
 ):
-    """Verify that topic metrics are collected and passed to RunMetrics.save."""
+    """Verify that topic metrics are collected and saved via save_jsonl."""
     articles = _make_articles(3)
     mock_fetch_all_feeds.return_value = FetchResult(
         articles=articles,
@@ -244,7 +244,7 @@ def test_cli_collects_topic_metrics(
     result = runner.invoke(main, ["--topic", "ai", "--skip-dedup"])
 
     assert result.exit_code == 0
-    mock_save_metrics.assert_called_once()
+    mock_save_jsonl.assert_called_once()
 
 
 @patch("src.cli.RunMetrics.create_now")
@@ -272,7 +272,7 @@ def test_cli_computes_per_topic_cost(
         total_tokens=15000,
     )
     mock_run = mock_create_now.return_value
-    mock_run.save.return_value = None
+    mock_run.save_jsonl.return_value = None
 
     runner = CliRunner()
     result = runner.invoke(main, ["--topic", "ai", "--skip-dedup"])

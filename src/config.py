@@ -135,6 +135,7 @@ def get_llm_config() -> tuple[str, str | None, str]:
 
 # --- Metrics ---
 DEFAULT_METRICS_DIR: Final[Path] = Path(__file__).parent.parent / "metrics"
+DEFAULT_METRICS_FILE: Final[Path] = DEFAULT_METRICS_DIR / "history.jsonl"
 
 # Cost per 1M tokens (input, output) for dashboard estimation only.
 MODEL_COST_PER_MILLION_TOKENS: Final[dict[str, tuple[float, float]]] = {

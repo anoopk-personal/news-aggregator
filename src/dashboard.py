@@ -7,7 +7,7 @@ from pathlib import Path
 
 from .config import (
     DEFAULT_COST_PER_MILLION_TOKENS,
-    DEFAULT_METRICS_DIR,
+    DEFAULT_METRICS_FILE,
     MODEL_COST_PER_MILLION_TOKENS,
 )
 from .metrics import RunMetrics
@@ -41,19 +41,9 @@ class PeriodSummary:
         return self.feeds_succeeded / self.feeds_total * 100
 
 
-def load_metrics(metrics_dir: Path = DEFAULT_METRICS_DIR) -> list[RunMetrics]:
-    """Load all metrics JSON files from the directory."""
-    if not metrics_dir.exists():
-        return []
-
-    metrics = []
-    for filepath in sorted(metrics_dir.glob("*.json")):
-        try:
-            text = filepath.read_text(encoding="utf-8")
-            metrics.append(RunMetrics.from_json(text))
-        except (ValueError, KeyError, TypeError) as e:
-            logger.warning("Skipping malformed metrics file %s: %s", filepath.name, e)
-    return metrics
+def load_metrics(metrics_file: Path = DEFAULT_METRICS_FILE) -> list[RunMetrics]:
+    """Load all runs from the JSONL metrics file."""
+    return RunMetrics.load_all_jsonl(metrics_file)
 
 
 def _build_summary(label: str, runs: list[RunMetrics]) -> PeriodSummary:
@@ -211,7 +201,7 @@ def main() -> None:
     logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
     metrics = load_metrics()
     if not metrics:
-        logger.info("No metrics found in %s, skipping dashboard update", DEFAULT_METRICS_DIR)
+        logger.info("No metrics found in %s, skipping dashboard update", DEFAULT_METRICS_FILE)
         return
     dashboard = render_dashboard(metrics)
     update_readme(dashboard)
