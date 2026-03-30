@@ -9,7 +9,7 @@ from dotenv import load_dotenv
 
 from .config import (
     CONTENT_SEPARATOR,
-    DEFAULT_METRICS_DIR,
+    DEFAULT_METRICS_FILE,
     DEFAULT_OUTPUT_DIR,
     FEEDS,
     LLM_MODEL_DEFAULT,
@@ -148,7 +148,7 @@ def main(
             skipped_dedup=skip_dedup,
             topics=all_topic_metrics,
         )
-        run_metrics.save(DEFAULT_METRICS_DIR)
+        run_metrics.save_jsonl(DEFAULT_METRICS_FILE)
 
     if not all_summaries:
         if topic_errors > 0:

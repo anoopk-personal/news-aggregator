@@ -102,13 +102,46 @@ class RunMetrics:
         """Serialize to a JSON string."""
         return json.dumps(self.to_dict(), indent=2, ensure_ascii=False)
 
-    def save(self, metrics_dir: Path) -> Path:
-        """Write metrics JSON to metrics_dir/YYYY-MM-DD.json. Overwrites on same-day rerun."""
-        metrics_dir.mkdir(parents=True, exist_ok=True)
-        filepath = metrics_dir / f"{self.run_date}.json"
-        filepath.write_text(self.to_json(), encoding="utf-8")
-        logger.info("Saved metrics to %s", filepath)
-        return filepath
+    def save_jsonl(self, metrics_file: Path) -> Path:
+        """Append one JSON line to the JSONL file. Replaces last line on same-day rerun."""
+        metrics_file.parent.mkdir(parents=True, exist_ok=True)
+        new_line = json.dumps(self.to_dict(), ensure_ascii=False)
+
+        lines: list[str] = []
+        if metrics_file.exists():
+            lines = [line for line in metrics_file.read_text(encoding="utf-8").splitlines() if line]
+
+        if lines:
+            try:
+                last_entry = json.loads(lines[-1])
+                if last_entry.get("run_date") == self.run_date:
+                    lines[-1] = new_line
+                else:
+                    lines.append(new_line)
+            except (json.JSONDecodeError, TypeError):
+                lines.append(new_line)
+        else:
+            lines.append(new_line)
+
+        metrics_file.write_text("\n".join(lines) + "\n", encoding="utf-8")
+        logger.info("Saved metrics to %s", metrics_file)
+        return metrics_file
+
+    @classmethod
+    def load_all_jsonl(cls, metrics_file: Path) -> list["RunMetrics"]:
+        """Load all runs from a JSONL file. Returns empty list if file is missing."""
+        if not metrics_file.exists():
+            return []
+
+        metrics: list[RunMetrics] = []
+        for i, line in enumerate(metrics_file.read_text(encoding="utf-8").splitlines(), 1):
+            if not line.strip():
+                continue
+            try:
+                metrics.append(cls.from_json(line))
+            except (ValueError, KeyError, TypeError) as e:
+                logger.warning("Skipping malformed line %d in %s: %s", i, metrics_file.name, e)
+        return metrics
 
     @classmethod
     def from_json(cls, text: str) -> "RunMetrics":

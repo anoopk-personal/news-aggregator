@@ -98,29 +98,76 @@ def test_from_json_ignores_unknown_aggregates():
     assert restored.run_date == "2026-03-25"
 
 
-def test_save_creates_file(tmp_path):
-    run = _sample_run()
-    filepath = run.save(tmp_path)
-    assert filepath.exists()
-    assert filepath.name == "2026-03-25.json"
-    data = json.loads(filepath.read_text())
-    assert data["model"] == "gemini-2.5-pro"
+class TestSaveJsonl:
+    def test_creates_file_with_one_line(self, tmp_path):
+        jsonl_file = tmp_path / "history.jsonl"
+        run = _sample_run()
+        run.save_jsonl(jsonl_file)
+        assert jsonl_file.exists()
+        lines = [line for line in jsonl_file.read_text().splitlines() if line]
+        assert len(lines) == 1
+        data = json.loads(lines[0])
+        assert data["model"] == "gemini-2.5-pro"
+
+    def test_appends_for_different_dates(self, tmp_path):
+        jsonl_file = tmp_path / "history.jsonl"
+        _sample_run(run_date="2026-03-24").save_jsonl(jsonl_file)
+        _sample_run(run_date="2026-03-25").save_jsonl(jsonl_file)
+        lines = [line for line in jsonl_file.read_text().splitlines() if line]
+        assert len(lines) == 2
+        assert json.loads(lines[0])["run_date"] == "2026-03-24"
+        assert json.loads(lines[1])["run_date"] == "2026-03-25"
+
+    def test_replaces_last_line_on_same_day(self, tmp_path):
+        jsonl_file = tmp_path / "history.jsonl"
+        _sample_run(duration_seconds=10.0).save_jsonl(jsonl_file)
+        _sample_run(duration_seconds=99.9).save_jsonl(jsonl_file)
+        lines = [line for line in jsonl_file.read_text().splitlines() if line]
+        assert len(lines) == 1
+        assert json.loads(lines[0])["duration_seconds"] == 99.9
+
+    def test_creates_parent_directories(self, tmp_path):
+        jsonl_file = tmp_path / "nested" / "metrics" / "history.jsonl"
+        _sample_run().save_jsonl(jsonl_file)
+        assert jsonl_file.exists()
+
+    def test_handles_malformed_last_line(self, tmp_path):
+        jsonl_file = tmp_path / "history.jsonl"
+        jsonl_file.write_text("not valid json\n")
+        _sample_run().save_jsonl(jsonl_file)
+        lines = [line for line in jsonl_file.read_text().splitlines() if line]
+        assert len(lines) == 2
 
 
-def test_save_overwrites_on_same_day(tmp_path):
-    run1 = _sample_run(duration_seconds=10.0)
-    run2 = _sample_run(duration_seconds=99.9)
-    run1.save(tmp_path)
-    filepath = run2.save(tmp_path)
-    data = json.loads(filepath.read_text())
-    assert data["duration_seconds"] == 99.9
+class TestLoadAllJsonl:
+    def test_roundtrip(self, tmp_path):
+        jsonl_file = tmp_path / "history.jsonl"
+        _sample_run(run_date="2026-03-24").save_jsonl(jsonl_file)
+        _sample_run(run_date="2026-03-25").save_jsonl(jsonl_file)
+        metrics = RunMetrics.load_all_jsonl(jsonl_file)
+        assert len(metrics) == 2
+        assert metrics[0].run_date == "2026-03-24"
+        assert metrics[1].run_date == "2026-03-25"
 
+    def test_skips_blank_lines(self, tmp_path):
+        jsonl_file = tmp_path / "history.jsonl"
+        run = _sample_run()
+        line = json.dumps(run.to_dict(), ensure_ascii=False)
+        jsonl_file.write_text(f"{line}\n\n{line}\n")
+        metrics = RunMetrics.load_all_jsonl(jsonl_file)
+        assert len(metrics) == 2
 
-def test_save_creates_directory(tmp_path):
-    metrics_dir = tmp_path / "nested" / "metrics"
-    run = _sample_run()
-    filepath = run.save(metrics_dir)
-    assert filepath.exists()
+    def test_skips_malformed_lines(self, tmp_path):
+        jsonl_file = tmp_path / "history.jsonl"
+        run = _sample_run()
+        line = json.dumps(run.to_dict(), ensure_ascii=False)
+        jsonl_file.write_text(f"{line}\nnot valid json\n{line}\n")
+        metrics = RunMetrics.load_all_jsonl(jsonl_file)
+        assert len(metrics) == 2
+
+    def test_returns_empty_for_missing_file(self, tmp_path):
+        metrics = RunMetrics.load_all_jsonl(tmp_path / "nonexistent.jsonl")
+        assert metrics == []
 
 
 def test_create_now():

@@ -45,25 +45,36 @@ def _sample_run(run_date: str, **overrides) -> RunMetrics:
 
 
 class TestLoadMetrics:
-    def test_loads_valid_json_files(self, tmp_path):
-        run = _sample_run("2026-03-25")
-        (tmp_path / "2026-03-25.json").write_text(run.to_json())
-        metrics = load_metrics(tmp_path)
+    def _write_jsonl(self, path, *runs):
+        import json
+
+        lines = [json.dumps(r.to_dict(), ensure_ascii=False) for r in runs]
+        path.write_text("\n".join(lines) + "\n")
+
+    def test_loads_valid_jsonl(self, tmp_path):
+        jsonl_file = tmp_path / "history.jsonl"
+        self._write_jsonl(jsonl_file, _sample_run("2026-03-25"))
+        metrics = load_metrics(jsonl_file)
         assert len(metrics) == 1
         assert metrics[0].run_date == "2026-03-25"
 
-    def test_skips_malformed_json(self, tmp_path):
-        (tmp_path / "2026-03-25.json").write_text("not valid json")
-        (tmp_path / "2026-03-24.json").write_text(_sample_run("2026-03-24").to_json())
-        metrics = load_metrics(tmp_path)
+    def test_skips_malformed_lines(self, tmp_path):
+        import json
+
+        jsonl_file = tmp_path / "history.jsonl"
+        good_line = json.dumps(_sample_run("2026-03-24").to_dict(), ensure_ascii=False)
+        jsonl_file.write_text(f"not valid json\n{good_line}\n")
+        metrics = load_metrics(jsonl_file)
         assert len(metrics) == 1
 
-    def test_returns_empty_when_directory_missing(self, tmp_path):
-        metrics = load_metrics(tmp_path / "nonexistent")
+    def test_returns_empty_when_file_missing(self, tmp_path):
+        metrics = load_metrics(tmp_path / "nonexistent.jsonl")
         assert metrics == []
 
-    def test_returns_empty_for_empty_directory(self, tmp_path):
-        metrics = load_metrics(tmp_path)
+    def test_returns_empty_for_empty_file(self, tmp_path):
+        jsonl_file = tmp_path / "history.jsonl"
+        jsonl_file.write_text("")
+        metrics = load_metrics(jsonl_file)
         assert metrics == []
 
 

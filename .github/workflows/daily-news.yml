@@ -54,7 +54,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add -f daily-news/
-          git add metrics/
+          git add metrics/history.jsonl
           git add README.md
           if git diff --staged --quiet; then
             echo "No news files generated"
