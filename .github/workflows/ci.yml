@@ -57,8 +57,7 @@ jobs:
         run: uv run mypy src/
 
       - name: Audit dependencies
-        # CVE-2026-4539: pygments (transitive via pip-audit->rich), no fix available yet
-        run: uv run pip-audit --ignore-vuln CVE-2026-4539
+        run: uv run pip-audit
 
       - name: Run tests
         run: uv run pytest -v --cov=src --cov-report=term-missing --cov-fail-under=80
