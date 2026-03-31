@@ -80,7 +80,7 @@ Line length 100, double quotes, target py312. Lint rules: `E, F, I, W, UP, S, B`
 
 ## Git Workflow
 
-All changes go through PRs to `dev`. Branch protection requires the `lint-and-test` CI check to pass.
+All changes go through PRs to `dev`. Branch protection requires the `ci` CI check to pass.
 
 **Branch prefixes:** `feature/`, `fix/`, `docs/`, `test/`, `chore/`. The `daily-news/` prefix is reserved for the automated workflow.
 
@@ -88,7 +88,7 @@ Daily-news PRs require manual merge. Dependabot PRs auto-merge (squash) once CI 
 
 ## GitHub Actions
 
-- **ci.yml** -- Runs lint, format check, type check, dependency audit, and tests on PRs/pushes to `dev`. Jobs: `lint-and-test`, `secrets-scan` (gitleaks, requires `GITLEAKS_LICENSE` repo secret)
+- **ci.yml** -- Runs lint, format check, type check, dependency audit, and tests on PRs/pushes to `dev`. Jobs: `ci`, `secrets-scan` (gitleaks, requires `GITLEAKS_LICENSE` repo secret)
 - **daily-news.yml** — Scheduled at 11:00 UTC (5 AM Central), creates `daily-news/YYYY-MM-DD` branch, generates news, updates the README dashboard from metrics, and opens a PR (manual merge required)
 - **dependabot-auto-merge.yml** — Auto-merges Dependabot patch/minor PRs. Triggers on all PRs but skips non-Dependabot actors via job condition
 
