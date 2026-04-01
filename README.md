@@ -71,6 +71,10 @@ line_limits = [50, 100]   # min/max lines for the LLM summary
 
 Run a single test: `uv run pytest tests/test_rss_fetcher.py::test_name -v`
 
+## Contributing
+
+Contributions are welcome! Please ensure all tests pass (`make test-cov` requires 80%+ coverage) and code is formatted (`make format`) before submitting a PR.
+
 ## Automation
 
 A GitHub Actions workflow runs daily at 11:00 UTC and opens a PR with the generated digest. Each run captures pipeline metrics (article counts, feed health, token usage, cost) and updates the dashboard above. Dependabot keeps dependencies current with weekly PRs.
