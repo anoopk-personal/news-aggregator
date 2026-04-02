@@ -2,7 +2,7 @@
 
 
 class NewsAggregatorError(Exception):
-    """Base exception for news aggregator."""
+    """Base exception for news aggregator - all errors inherit from this."""
 
 
 class SummarizationError(NewsAggregatorError):
