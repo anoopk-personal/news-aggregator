@@ -22,11 +22,11 @@ Get a daily briefing on **AI**, **Cricket**, and **Finance** -- from 40+ sources
 
 | | Runs | Articles | Feeds | Tokens | Cost |
 |---|:---:|:---:|:---:|:---:|:---:|
-| **Last run** | 1 | 83 | 59% | 23k | $0.1209 |
-| **30 days** | 31 | 2,139 | 64% | 329k | $1.3224 |
-| **All time** | 53 | 3,038 | 65% | 329k | $1.3224 |
+| **Last run** | 1 | 106 | 55% | 24k | $0.1162 |
+| **30 days** | 31 | 2,214 | 64% | 353k | $1.4386 |
+| **All time** | 54 | 3,144 | 65% | 353k | $1.4386 |
 
-> Updated 2026-04-07 | Cost: $1.25/1M in + $10.0/1M out (`gemini-2.5-pro`)
+> Updated 2026-04-08 | Cost: $1.25/1M in + $10.0/1M out (`gemini-2.5-pro`)
 
 <!-- DASHBOARD:END -->
 
