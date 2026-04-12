@@ -2,7 +2,7 @@
 
 import logging
 from dataclasses import dataclass
-from datetime import date, timedelta
+from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 
 from .config import (
@@ -69,7 +69,7 @@ def compute_summary(
     today: date | None = None,
 ) -> PeriodSummary:
     """Aggregate metrics for the last N days."""
-    reference = today or date.today()
+    reference = today or datetime.now(UTC).date()
     cutoff = reference - timedelta(days=days)
 
     filtered = [m for m in metrics if m.run_date >= cutoff.isoformat()]
@@ -144,7 +144,7 @@ def render_dashboard(
     input_rate, output_rate = MODEL_COST_PER_MILLION_TOKENS.get(
         model, DEFAULT_COST_PER_MILLION_TOKENS
     )
-    reference = today or date.today()
+    reference = today or datetime.now(UTC).date()
 
     table = "\n".join(
         [
