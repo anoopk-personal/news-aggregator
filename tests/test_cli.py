@@ -119,7 +119,42 @@ def test_cli_skip_summarize_formats_articles_as_markdown(
     written_content = mock_write_markdown.call_args[0][0]
     assert "# AI News" in written_content
     assert "### Article 0" in written_content
-    assert "[Read more](https://example.com/0)" in written_content
+    assert "**Source:** [Example](https://example.com/0)" in written_content
+    assert "[Read more]" not in written_content
+
+
+@patch("src.cli.RunMetrics.save_jsonl")
+@patch("src.cli.fetch_all_feeds")
+@patch("src.cli.deduplicate_articles")
+@patch("src.cli.summarize_articles")
+@patch("src.cli.write_markdown")
+def test_cli_skip_summarize_escapes_hostile_link(
+    mock_write_markdown,
+    mock_summarize_articles,
+    mock_deduplicate,
+    mock_fetch_all_feeds,
+    mock_save_jsonl,
+):
+    """A hostile article.link with `)` must not break out of the markdown URL slot."""
+    hostile_article = Article(
+        title="Article 0",
+        link="https://evil.example/a)[click](https://phish.example/x",
+        summary="Summary",
+        source="Example",
+        published=datetime.now(tz=UTC),
+    )
+    mock_fetch_all_feeds.return_value = _make_fetch_result([hostile_article])
+    mock_deduplicate.return_value = [hostile_article]
+
+    runner = CliRunner()
+    result = runner.invoke(main, ["--topic", "ai", "--skip-summarize"])
+
+    assert result.exit_code == 0
+    written = mock_write_markdown.call_args[0][0]
+    # The injected second link must not survive escaping
+    assert "[click]" not in written
+    # The `)` that would close the URL slot must be percent-encoded
+    assert "%29" in written
 
 
 @patch("src.cli.fetch_all_feeds")
