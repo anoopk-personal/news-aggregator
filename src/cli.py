@@ -21,6 +21,7 @@ from .markdown_generator import get_output_path, write_markdown
 from .metrics import RunMetrics, TopicMetrics, estimate_cost
 from .rss_fetcher import Article, fetch_all_feeds
 from .summarizer import summarize_articles
+from .utils import escape_markdown_url
 
 load_dotenv()
 
@@ -35,10 +36,9 @@ def _format_articles_as_markdown(articles: list[Article], topic: str) -> str:
     lines = [f"# {topic.upper()} News\n"]
     for article in articles:
         lines.append(f"### {article.title}")
-        lines.append(f"**Source:** {article.source}\n")
+        lines.append(f"**Source:** [{article.source}]({escape_markdown_url(article.link)})\n")
         if article.summary:
             lines.append(f"{article.summary}\n")
-        lines.append(f"[Read more]({article.link})\n")
     return "\n".join(lines)
 
 

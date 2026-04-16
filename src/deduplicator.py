@@ -6,6 +6,7 @@ from difflib import SequenceMatcher
 
 from .config import DEDUP_SIMILARITY_THRESHOLD
 from .rss_fetcher import Article
+from .utils import escape_markdown_url
 
 logger = logging.getLogger(__name__)
 
@@ -50,10 +51,17 @@ def deduplicate_articles(articles: list[Article]) -> list[Article]:
     kept_articles: dict[int, Article] = {}
     for indices in clusters.values():
         best_idx = max(indices, key=lambda idx: len(articles[idx].summary))
-        other_sources = sorted({articles[idx].source for idx in indices if idx != best_idx})
-        if other_sources:
+        others: dict[str, str] = {}
+        for idx in indices:
+            if idx == best_idx:
+                continue
+            others.setdefault(articles[idx].source, articles[idx].link)
+        if others:
             best = articles[best_idx]
-            attribution = "Also covered by: " + ", ".join(other_sources)
+            linked = ", ".join(
+                f"[{name}]({escape_markdown_url(url)})" for name, url in sorted(others.items())
+            )
+            attribution = f"Also covered by: {linked}"
             kept_articles[best_idx] = Article(
                 title=best.title,
                 link=best.link,

@@ -39,7 +39,7 @@ def test_deduplicate_identical_articles():
     )
     result = deduplicate_articles([article_a, article_b])
     assert len(result) == 1
-    assert "Also covered by: VentureBeat" in result[0].summary
+    assert "Also covered by: [VentureBeat](https://b.com/1)" in result[0].summary
 
 
 def test_deduplicate_similar_articles():
@@ -102,7 +102,66 @@ def test_deduplicate_keeps_longest_summary():
     result = deduplicate_articles([short, medium, longest])
     assert len(result) == 1
     assert result[0].source == "C"
-    assert "Also covered by: A, B" in result[0].summary
+    assert "Also covered by: [A](https://a.com/1), [B](https://b.com/1)" in result[0].summary
+
+
+def test_deduplicate_preserves_urls_for_merged_sources():
+    """Merged non-winning sources retain their article URLs in the attribution."""
+    winner = _make_article(
+        title="OpenAI launches GPT-5 with major capability improvements",
+        link="https://winner.com/gpt5",
+        summary="OpenAI today announced GPT-5 with major improvements across reasoning "
+        "and multimodal capabilities. The model is generally available.",
+        source="Winner Source",
+    )
+    merged_a = _make_article(
+        title="OpenAI launches GPT-5 with major capability improvements",
+        link="https://a.com/article-path",
+        summary="OpenAI announced GPT-5 today.",
+        source="Source A",
+    )
+    merged_b = _make_article(
+        title="OpenAI launches GPT-5 with major capability improvements",
+        link="https://b.com/article-path",
+        summary="OpenAI announced GPT-5.",
+        source="Source B",
+    )
+    result = deduplicate_articles([winner, merged_a, merged_b])
+    assert len(result) == 1
+    assert "[Source A](https://a.com/article-path)" in result[0].summary
+    assert "[Source B](https://b.com/article-path)" in result[0].summary
+
+
+def test_deduplicate_escapes_hostile_url_in_attribution():
+    """A hostile `)` in a merged article's link must not break out of the
+    markdown `[name](url)` slot in the "Also covered by" attribution."""
+    shared_summary = (
+        "The platform announced a major new feature today with significant "
+        "implications for users across the ecosystem."
+    )
+    winner = _make_article(
+        title="Breaking: major platform launches new feature today",
+        link="https://winner.com/story",
+        summary=shared_summary + " Additional detail that makes this the longest summary.",
+        source="Winner",
+    )
+    hostile = _make_article(
+        title="Breaking: major platform launches new feature today",
+        link="https://evil.example/a)[click](https://phish.example/x",
+        summary=shared_summary,
+        source="Hostile",
+    )
+    result = deduplicate_articles([winner, hostile])
+    assert len(result) == 1
+    attribution = result[0].summary
+    # The `)` and `[` `]` that would enable breakout must be percent-encoded
+    assert "%29" in attribution
+    assert "%5B" in attribution
+    assert "%5D" in attribution
+    # The attribution must contain exactly one markdown link for "Hostile"
+    assert attribution.count("[Hostile]") == 1
+    # No raw injected markdown link syntax for the phishing target
+    assert "[click]" not in attribution
 
 
 def test_deduplicate_preserves_order():

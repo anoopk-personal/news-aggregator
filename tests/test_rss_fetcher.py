@@ -37,6 +37,18 @@ def test_sanitize_removes_script_tags():
     assert "<script>" not in _sanitize(text)
 
 
+def test_sanitize_strips_markdown_link_brackets():
+    """Markdown metacharacters `[` and `]` must be stripped so a hostile feed
+    title cannot break out of a `[text](url)` link-text slot when interpolated
+    into the source attribution markdown."""
+    hostile = "Reputable News](https://evil.example/phish) "
+    sanitized = _sanitize(hostile)
+    assert "[" not in sanitized
+    assert "]" not in sanitized
+    # Ensure the dangerous `](` sequence cannot reappear after sanitization
+    assert "](" not in sanitized
+
+
 def test_parse_date_success():
     """Test that valid date strings are parsed correctly."""
     recent = datetime.now(UTC) - timedelta(hours=2)

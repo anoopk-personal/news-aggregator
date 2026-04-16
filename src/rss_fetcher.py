@@ -292,6 +292,10 @@ def _sanitize(text: str) -> str:
     sanitized_text = nh3.clean(text, tags=set())
     # Remove emojis
     sanitized_text = EMOJI_PATTERN.sub("", sanitized_text)
+    # Strip markdown link metacharacters so the text is safe to embed inside
+    # `[text](url)` sinks without enabling link-text breakout attacks from
+    # hostile feed titles.
+    sanitized_text = sanitized_text.translate(str.maketrans("", "", "[]"))
     # Normalize whitespace
     sanitized_text = re.sub(r"\s+", " ", sanitized_text)
     return sanitized_text.strip()

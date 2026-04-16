@@ -42,7 +42,7 @@ Run a single test: `uv run pytest tests/test_rss_fetcher.py::test_sanitize_remov
 - **metrics.py** — `RunMetrics` and `TopicMetrics` dataclasses for per-run pipeline metrics. `TopicMetrics` includes a `cost` field computed at save time via `estimate_cost()` (uses model-specific rates from `config.py`). `RunMetrics.total_cost` aggregates across topics. Stored as JSONL (one JSON line per run) in `metrics/history.jsonl`. Same-day reruns replace the last line. Old JSON entries without `cost` default to 0.0 on load
 - **dashboard.py** — Reads metrics from JSONL file (`metrics/history.jsonl`), renders a markdown table with three rows (Last run, 30 days, All time) and injects it into `README.md` between `<!-- DASHBOARD:START/END -->` markers. Columns: Runs, Articles, Feeds (success %), Tokens, Cost. All numeric columns are cumulative totals per period; "Last run" shows the single most recent run's stats. Cost column aggregates per-run stored costs (not recalculated). Runnable standalone: `uv run python -m src.dashboard`
 - **markdown_generator.py** — Writes `news-MM-DD-YY.md` to `daily-news/`, duplicates get `(2)` suffix
-- **utils.py** — Shared `EMOJI_PATTERN` regex used by both fetcher and markdown generator
+- **utils.py** — Shared `EMOJI_PATTERN` regex used by fetcher and markdown generator; `escape_markdown_url()` percent-encodes markdown-unsafe characters (`)`, `(`, `[`, `]`, `"`, backslash, whitespace) in URLs before interpolation in `cli.py` and `deduplicator.py`
 - **exceptions.py** — `NewsAggregatorError` base, `SummarizationError` for LLM failures
 - **feeds.toml** — User-editable topic/feed configuration loaded by `config.py` at startup
 
@@ -100,6 +100,7 @@ Feeds are untrusted input. Defenses are layered across the pipeline:
 - **Prompt injection** (`summarizer.py`): Articles serialized as JSON (not XML tags) to avoid prompt boundary confusion
 - **Config validation** (`config.py`): Feed URLs validated at load time (HTTPS, no private hosts). Env vars stripped of whitespace
 - **XSS** (`markdown_generator.py`, `rss_fetcher.py`): nh3 strips HTML; `javascript:`, `data:`, `vbscript:` URI schemes neutralized (case-insensitive)
+- **Markdown link injection** (`rss_fetcher.py`, `utils.py`): `_sanitize()` strips `[` and `]` from feed-derived text so hostile source names cannot break out of `[text](url)` link-text slots. `escape_markdown_url()` percent-encodes `)`, `(`, `[`, `]`, `"`, backslash, and whitespace in link URLs before interpolation in `cli.py` and `deduplicator.py`, preventing URL-slot breakout / nested-link injection
 - **Secrets scanning** (`ci.yml`): gitleaks scans full git history on every PR/push
 - **XXE**: feedparser does not process external entities
 - **Pre-commit hook** (`scripts/pre-commit`): Rejects commits with empty or placeholder git email. Install with `make install-hooks`

@@ -14,7 +14,7 @@ Get a daily briefing on **AI**, **Cricket**, and **Finance** -- from 40+ sources
 > Google has released Gemini 3.1 Flash Live in a developer preview, describing it as its
 > highest-quality audio and speech model for real-time, low-latency interactions. The model
 > natively processes multimodal streams and supports tool use, providing a foundation for
-> building more natural AI agents and voice interfaces. *(Source: Google, MarkTechPost)*
+> building more natural AI agents and voice interfaces. *(Source: [Google](https://blog.google/technology/developers/gemini-3-1-flash-live/), [MarkTechPost](https://www.marktechpost.com/gemini-3-1-flash-live-preview/))*
 
 <!-- DASHBOARD:START -->
 
