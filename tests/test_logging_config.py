@@ -2,6 +2,7 @@
 
 import json
 import logging
+from pathlib import Path
 
 import pytest
 
@@ -136,3 +137,20 @@ def test_configure_logging_is_idempotent(monkeypatch, capsys):
 
     # Exactly one log line, not two.
     assert captured.err.count("once") == 1
+
+
+def test_configure_logging_respects_level(monkeypatch):
+    """The level argument sets the root logger level."""
+    monkeypatch.setattr("sys.stderr.isatty", lambda: True)
+    configure_logging(logging.DEBUG)
+    assert logging.getLogger().level == logging.DEBUG
+
+
+def test_json_formatter_handles_non_serializable_extras():
+    """default=str fallback lets json.dumps handle Path and similar objects."""
+    formatter = JsonFormatter()
+    record = _make_record("event")
+    record.path = Path("/var/data/foo")
+
+    payload = json.loads(formatter.format(record))
+    assert payload["path"] == "/var/data/foo"

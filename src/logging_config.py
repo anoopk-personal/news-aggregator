@@ -5,6 +5,8 @@ import logging
 import sys
 from typing import Final
 
+__all__ = ["JsonFormatter", "configure_logging"]
+
 _HUMAN_FORMAT: Final[str] = "%(levelname)s: %(message)s"
 
 # Standard LogRecord attributes -- everything else on a record is treated as
@@ -44,6 +46,10 @@ class JsonFormatter(logging.Formatter):
     Includes the standard fields (timestamp, level, logger, message) plus any
     keyword arguments passed via ``logger.info(..., extra={...})``. Exception
     tracebacks, when present, are emitted as a single ``exception`` field.
+
+    Security note: this formatter passes through every non-standard
+    ``LogRecord`` attribute. Callers must not log secrets, API keys, or other
+    sensitive values via ``extra={...}``. Redact at the call site.
     """
 
     def format(self, record: logging.LogRecord) -> str:
@@ -73,6 +79,7 @@ def configure_logging(level: int = logging.INFO) -> None:
     root = logging.getLogger()
     for handler in list(root.handlers):
         root.removeHandler(handler)
+        handler.close()
 
     handler = logging.StreamHandler(sys.stderr)
     if sys.stderr.isatty():
