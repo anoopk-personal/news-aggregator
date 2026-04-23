@@ -35,6 +35,6 @@ line_limits = [20, 50]
 
 [topics.finance]
 feeds = [
-    "https://www.wsj.com/",
+    "https://feeds.content.dowjones.io/public/rss/mw_topstories",
 ]
 line_limits = [50, 100]
