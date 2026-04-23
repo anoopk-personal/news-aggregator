@@ -26,7 +26,6 @@ from .utils import escape_markdown_url
 
 load_dotenv()
 
-configure_logging()
 logger = logging.getLogger(__name__)
 
 VALID_TOPICS = list(FEEDS.keys()) + ["all"]
@@ -82,6 +81,7 @@ def main(
     dry_run: bool,
 ) -> None:
     """Fetch and summarize news for a given topic."""
+    configure_logging()
     start_time = time.monotonic()
     topics = list(FEEDS.keys()) if topic == "all" else [topic]
     all_summaries = []
