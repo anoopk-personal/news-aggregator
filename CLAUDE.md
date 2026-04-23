@@ -43,6 +43,7 @@ Run a single test: `uv run pytest tests/test_rss_fetcher.py::test_sanitize_remov
 - **dashboard.py** — Reads metrics from JSONL file (`metrics/history.jsonl`), renders a markdown table with three rows (Last run, 30 days, All time) and injects it into `README.md` between `<!-- DASHBOARD:START/END -->` markers. Columns: Runs, Articles, Feed % (success rate), Tokens, Cost. All numeric columns are cumulative totals per period; "Last run" shows the single most recent run's stats. Cost column aggregates per-run stored costs (not recalculated). Runnable standalone: `uv run python -m src.dashboard`
 - **markdown_generator.py** — Writes `news-MM-DD-YY.md` to `daily-news/`, duplicates get `(2)` suffix
 - **utils.py** — Shared `EMOJI_PATTERN` regex used by fetcher and markdown generator; `escape_markdown_url()` percent-encodes markdown-unsafe characters (`)`, `(`, `[`, `]`, `"`, backslash, whitespace) in URLs before interpolation in `cli.py` and `deduplicator.py`
+- **logging_config.py** — `configure_logging()` sets up the root logger to write to stderr. Format auto-selects: human-readable (`LEVEL: message`) when stderr is a TTY, JSON (one object per line) when not (CI, redirected output). Called once from `cli.py` and `dashboard.py` entry points. Idempotent. Stdout is left untouched so `--dry-run > digest.md` works cleanly.
 - **exceptions.py** — `NewsAggregatorError` base, `SummarizationError` for LLM failures
 - **feeds.toml** — User-editable topic/feed configuration loaded by `config.py` at startup
 

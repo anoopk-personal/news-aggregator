@@ -17,6 +17,7 @@ from .config import (
 )
 from .deduplicator import deduplicate_articles
 from .exceptions import NewsAggregatorError, SummarizationError
+from .logging_config import configure_logging
 from .markdown_generator import get_output_path, write_markdown
 from .metrics import RunMetrics, TopicMetrics, estimate_cost
 from .rss_fetcher import Article, fetch_all_feeds
@@ -25,7 +26,7 @@ from .utils import escape_markdown_url
 
 load_dotenv()
 
-logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
+configure_logging()
 logger = logging.getLogger(__name__)
 
 VALID_TOPICS = list(FEEDS.keys()) + ["all"]
