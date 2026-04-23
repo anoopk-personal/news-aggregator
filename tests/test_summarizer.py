@@ -127,3 +127,32 @@ def test_summarize_prompt_requests_markdown_linked_sources(mock_openai_client, m
     assert "markdown link" in prompt.lower()
     # Article URL must be present in the JSON payload so the LLM can use it
     assert "https://example.com/article-path" in prompt
+
+
+def test_summarize_prompt_escapes_hostile_article_url(mock_openai_client, monkeypatch):
+    """Hostile article links must be percent-encoded before reaching the LLM, so
+    the model copying them verbatim cannot break out of the markdown URL slot."""
+    monkeypatch.setenv("LLM_API_KEY", "test_key")
+    monkeypatch.setenv("LLM_BASE_URL", "https://test.com")
+    hostile = Article(
+        title="Title",
+        link="https://evil.example/a)[click](https://phish.example/x",
+        summary="Summary",
+        source="Example",
+    )
+    summarize_articles([hostile], "ai")
+
+    create_call = mock_openai_client.return_value.chat.completions.create
+    prompt = create_call.call_args[1]["messages"][0]["content"]
+
+    # Every metacharacter that could break out of `(url)` must be percent-encoded
+    # in the link payload sent to the LLM.
+    assert "%29" in prompt  # )
+    assert "%28" in prompt  # (
+    assert "%5B" in prompt  # [
+    assert "%5D" in prompt  # ]
+    # The dangerous nested-link sequence must not survive escaping
+    assert "a)[click]" not in prompt
+    # And the fully-escaped URL must appear in the JSON payload as a single token
+    expected_escaped = "https://evil.example/a%29%5Bclick%5D%28https://phish.example/x"
+    assert expected_escaped in prompt

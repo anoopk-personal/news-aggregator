@@ -1,7 +1,6 @@
 """Fetch and parse RSS feeds."""
 
 import asyncio
-import ipaddress
 import logging
 import re
 from dataclasses import dataclass
@@ -26,7 +25,7 @@ from .config import (
     SUMMARY_MAX_LENGTH,
     TITLE_MAX_LENGTH,
 )
-from .utils import EMOJI_PATTERN
+from .utils import EMOJI_PATTERN, is_valid_url
 
 logger = logging.getLogger(__name__)
 
@@ -54,52 +53,10 @@ class FetchResult:
     feeds_failed: int
 
 
-def _is_non_routable_host(hostname: str) -> bool:
-    """Check if a hostname is a non-globally-routable IP or localhost."""
-    if not hostname:
-        return True
-    hostname = hostname.rstrip(".")
-    if hostname.lower() in ("localhost", "localhost.localdomain"):
-        return True
-    # Strip IPv6 zone ID (e.g. fe80::1%eth0)
-    if "%" in hostname:
-        hostname = hostname.split("%")[0]
-    try:
-        return not ipaddress.ip_address(hostname).is_global
-    except ValueError:
-        pass
-    # Bare integers, hex (0x7f000001), and C-style octal (017700000001) are resolved
-    # as IPs by glibc on Linux. Python's int(x, 0) handles hex/0o-octal/decimal but
-    # not C-style octal (leading zero without 'o'), so we detect that separately.
-    try:
-        if hostname.startswith(("0x", "0X")):
-            numeric = int(hostname, 16)
-        elif len(hostname) > 1 and hostname[0] == "0" and hostname.isdigit():
-            numeric = int(hostname, 8)
-        else:
-            numeric = int(hostname)
-        return not ipaddress.ip_address(numeric).is_global
-    except (ValueError, OverflowError):
-        return False  # regular domain name, allow it
-
-
-def _is_valid_url(url: str) -> bool:
-    """Validate that a URL has an allowed scheme and valid structure."""
-    try:
-        parsed = urlparse(url)
-        if parsed.scheme not in ALLOWED_URL_SCHEMES or not parsed.netloc:
-            return False
-        if _is_non_routable_host(parsed.hostname or ""):
-            return False
-        return True
-    except (ValueError, AttributeError):
-        return False
-
-
 def _validate_redirect(current_url: str, response: httpx.Response) -> str | None:
     """Validate a redirect response. Returns the target URL or None if blocked."""
     location: str = response.headers.get("location", "")
-    if not _is_valid_url(location):
+    if not is_valid_url(location, ALLOWED_URL_SCHEMES):
         logger.warning(
             "Redirect to invalid URL blocked: %s -> %s",
             current_url,
@@ -111,7 +68,7 @@ def _validate_redirect(current_url: str, response: httpx.Response) -> str | None
 
 def fetch_feed(url: str) -> list[Article]:
     """Fetch and parse a single RSS feed (sync version for testing/standalone use)."""
-    if not _is_valid_url(url):
+    if not is_valid_url(url, ALLOWED_URL_SCHEMES):
         logger.warning("Invalid URL skipped: %s", url)
         return []
 
@@ -136,7 +93,7 @@ def fetch_feed(url: str) -> list[Article]:
 
 async def _fetch_feed_async(url: str, client: httpx.AsyncClient) -> list[Article]:
     """Fetch and parse a single RSS feed asynchronously with retry."""
-    if not _is_valid_url(url):
+    if not is_valid_url(url, ALLOWED_URL_SCHEMES):
         logger.warning("Invalid URL skipped: %s", url)
         return []
 
@@ -263,7 +220,7 @@ def _parse_feed(text: str, url: str) -> list[Article]:
         if not title or not link:
             continue
 
-        if not _is_valid_url(link):
+        if not is_valid_url(link, ALLOWED_URL_SCHEMES):
             continue
 
         if published and published < cutoff:

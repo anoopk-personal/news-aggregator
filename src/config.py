@@ -8,25 +8,26 @@ from typing import Final
 from urllib.parse import urlparse
 
 from .exceptions import NewsAggregatorError, SummarizationError
+from .utils import is_valid_url
 
 logger = logging.getLogger(__name__)
 
 FEEDS_CONFIG_PATH: Final[Path] = Path(__file__).parent.parent / "feeds.toml"
 
-
-def _validate_feed_url(url: str) -> bool:
-    """Lightweight check that a feed URL has a valid scheme and netloc."""
-    try:
-        parsed = urlparse(url)
-        return parsed.scheme in ("https",) and bool(parsed.netloc)
-    except (ValueError, AttributeError):
-        return False
+# Defined here (before _load_feeds_config runs) so feed URLs are validated against
+# the same scheme allowlist used by the fetcher at request time.
+ALLOWED_URL_SCHEMES: Final[frozenset[str]] = frozenset({"https"})
 
 
 def _load_feeds_config(
     config_path: Path = FEEDS_CONFIG_PATH,
 ) -> tuple[dict[str, list[str]], dict[str, tuple[int, int]]]:
-    """Load feeds from TOML config. Raises NewsAggregatorError if missing or empty."""
+    """Load feeds from TOML config. Raises NewsAggregatorError if missing or empty.
+
+    Feed URLs are validated against the full SSRF defense (scheme + non-routable
+    host check) at load time, so misconfigured private hosts in ``feeds.toml``
+    are rejected at startup rather than at fetch time.
+    """
     if not config_path.exists():
         raise NewsAggregatorError(f"feeds.toml not found at {config_path}")
 
@@ -43,7 +44,7 @@ def _load_feeds_config(
             continue
         valid_urls = []
         for url in topic["feeds"]:
-            if _validate_feed_url(url):
+            if is_valid_url(url, ALLOWED_URL_SCHEMES):
                 valid_urls.append(url)
             else:
                 logger.warning("Invalid feed URL in topic '%s', skipping: %s", name, url)
@@ -84,7 +85,6 @@ ARTICLES_PER_FEED: Final[int] = 25
 MAX_ARTICLE_AGE_HOURS: Final[int] = 72
 FETCH_MAX_RETRIES: Final[int] = 2
 FETCH_RETRY_BACKOFF: Final[float] = 1.5  # seconds, doubles each retry
-ALLOWED_URL_SCHEMES: Final[frozenset[str]] = frozenset({"https"})
 
 # --- Article truncation ---
 TITLE_MAX_LENGTH: Final[int] = 500
