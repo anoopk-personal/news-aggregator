@@ -10,6 +10,7 @@ from .config import (
     DEFAULT_METRICS_FILE,
     MODEL_COST_PER_MILLION_TOKENS,
 )
+from .logging_config import configure_logging
 from .metrics import RunMetrics
 
 logger = logging.getLogger(__name__)
@@ -198,7 +199,7 @@ def update_readme(
 
 def main() -> None:
     """Load metrics and update README dashboard."""
-    logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
+    configure_logging()
     metrics = load_metrics()
     if not metrics:
         logger.info("No metrics found in %s, skipping dashboard update", DEFAULT_METRICS_FILE)
