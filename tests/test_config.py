@@ -256,3 +256,41 @@ line_limits = [200, 50]
     feeds, limits = _load_feeds_config(config)
     assert "test" in feeds
     assert "test" not in limits
+
+
+def test_load_feeds_rejects_private_host_at_load_time(tmp_path: Path):
+    """SSRF defense: feed URLs pointing to private/loopback hosts must be
+    rejected at config load time, not deferred to fetch time."""
+    config = tmp_path / "feeds.toml"
+    config.write_text(
+        """
+[topics.mixed]
+feeds = [
+    "https://valid.com/feed",
+    "https://192.168.1.1/feed",
+    "https://127.0.0.1/feed",
+    "https://localhost/feed",
+]
+"""
+    )
+    feeds, _ = _load_feeds_config(config)
+    assert feeds["mixed"] == ["https://valid.com/feed"]
+
+
+def test_load_feeds_rejects_numeric_encoding_bypass(tmp_path: Path):
+    """SSRF defense: hex/octal/decimal-encoded loopback IPs must be rejected
+    at load time (glibc would resolve them as 127.0.0.1)."""
+    config = tmp_path / "feeds.toml"
+    config.write_text(
+        """
+[topics.good]
+feeds = ["https://valid.com/feed"]
+
+[topics.attack]
+feeds = ["https://0x7f000001/feed", "https://017700000001/feed"]
+"""
+    )
+    feeds, _ = _load_feeds_config(config)
+    assert feeds["good"] == ["https://valid.com/feed"]
+    # Topic should be skipped because no valid feeds remain
+    assert "attack" not in feeds

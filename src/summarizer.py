@@ -18,6 +18,7 @@ from .config import (
 )
 from .exceptions import SummarizationError
 from .rss_fetcher import Article
+from .utils import escape_markdown_url
 
 logger = logging.getLogger(__name__)
 
@@ -48,10 +49,22 @@ def summarize_articles(articles: list[Article], topic: str) -> SummarizeResult:
 
     client = OpenAI(api_key=api_key, base_url=base_url) if base_url else OpenAI(api_key=api_key)
 
-    # Use JSON serialization to prevent prompt injection via malicious article content.
-    # JSON escaping neutralizes any structural injection attempts (e.g. closing XML tags).
+    # Pre-escape article URLs so that when the LLM copies them verbatim into
+    # `[source](url)` markdown links, hostile characters (`)`, `(`, `[`, `]`,
+    # `"`, whitespace, backslash) cannot break out of the URL slot to inject
+    # nested links or close the destination early. The escaped form is still a
+    # valid URL when the resulting markdown is rendered.
+    #
+    # Use JSON serialization to prevent prompt injection via malicious article
+    # content. JSON escaping neutralizes any structural injection attempts
+    # (e.g. closing XML tags).
     articles_data = [
-        {"source": a.source, "title": a.title, "link": a.link, "summary": a.summary}
+        {
+            "source": a.source,
+            "title": a.title,
+            "link": escape_markdown_url(a.link),
+            "summary": a.summary,
+        }
         for a in articles
     ]
     articles_json = json.dumps(articles_data, ensure_ascii=False)

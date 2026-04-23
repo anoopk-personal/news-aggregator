@@ -9,7 +9,6 @@ import pytest
 from src.rss_fetcher import (
     Article,
     _fetch_feed_async,
-    _is_valid_url,
     _parse_date,
     _parse_feed,
     _sanitize,
@@ -104,41 +103,40 @@ def test_article_with_published_date():
     ],
     ids=["https", "https-subdomain"],
 )
-def test_is_valid_url_accepts_valid_urls(url):
-    assert _is_valid_url(url) is True
+def test_fetch_feed_accepts_valid_urls_via_validator(url):
+    """Smoke test that fetch_feed delegates to the shared URL validator
+    (full SSRF matrix lives in test_utils.py)."""
+    from unittest.mock import MagicMock, patch
+
+    with patch("src.rss_fetcher.httpx.get") as mock_get:
+        response = MagicMock()
+        response.is_redirect = False
+        response.raise_for_status = MagicMock()
+        response.text = "<rss version='2.0'><channel><title>T</title></channel></rss>"
+        mock_get.return_value = response
+        # Should not log "Invalid URL skipped" -- the call goes through
+        fetch_feed(url)
+        mock_get.assert_called_once()
 
 
 @pytest.mark.parametrize(
-    ("url", "reason"),
+    "url",
     [
-        # Scheme violations
-        ("http://example.com/feed", "http-scheme"),
-        ("javascript:alert('xss')", "javascript-scheme"),
-        ("file:///etc/passwd", "file-scheme"),
-        ("", "empty-string"),
-        ("/path/to/resource", "relative-path"),
-        # Localhost and private ranges
-        ("http://localhost/feed", "localhost"),
-        ("http://localhost./feed", "localhost-trailing-dot"),
-        ("http://192.168.1.1/feed", "private-ip-192"),
-        ("http://127.0.0.1/feed", "loopback-ipv4"),
-        ("http://0.0.0.0/feed", "zero-quad"),
-        ("http://0/feed", "zero-ip"),
-        # IPv6
-        ("http://[::1]/feed", "ipv6-loopback"),
-        ("http://[fe80::1]/feed", "ipv6-link-local"),
-        ("http://[fe80::1%25eth0]/feed", "ipv6-zone-id"),
-        # Numeric encoding bypass attempts
-        ("http://0x7f000001/feed", "hex-loopback"),
-        ("http://017700000001/feed", "octal-loopback"),
-        ("http://0xC0A80101/feed", "hex-private-ip"),
-        # CGN range (RFC 6598)
-        ("https://100.64.0.1/feed", "cgn-range"),
+        "http://example.com/feed",  # http rejected
+        "javascript:alert('xss')",
+        "http://192.168.1.1/feed",
     ],
-    ids=lambda x: x if isinstance(x, str) else None,
+    ids=["http-scheme", "javascript-scheme", "private-ip"],
 )
-def test_is_valid_url_rejects_invalid_urls(url, reason):
-    assert _is_valid_url(url) is False
+def test_fetch_feed_rejects_invalid_urls_via_validator(url):
+    """Smoke test that fetch_feed rejects URLs the shared validator blocks
+    without making an HTTP call."""
+    from unittest.mock import patch
+
+    with patch("src.rss_fetcher.httpx.get") as mock_get:
+        articles = fetch_feed(url)
+        assert articles == []
+        mock_get.assert_not_called()
 
 
 @patch("src.rss_fetcher.httpx.get")
