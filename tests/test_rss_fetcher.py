@@ -682,7 +682,9 @@ async def test_fetch_all_feeds_async_returns_articles_for_valid_topic(mock_fetch
     result = await fetch_all_feeds_async("testtopic")
     assert len(result.articles) == 1
     assert result.articles[0].title == "Async Test"
+    assert result.feeds_total == 1
     assert result.feeds_succeeded == 1
+    assert result.feeds_failed == 0
 
 
 @pytest.mark.asyncio
