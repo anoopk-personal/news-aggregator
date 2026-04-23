@@ -188,17 +188,31 @@ async def _fetch_feed_async(url: str, client: httpx.AsyncClient) -> list[Article
 
 
 def fetch_all_feeds(topic: str) -> FetchResult:
-    """Fetch all feeds for a topic concurrently."""
+    """Fetch all feeds for a topic concurrently (sync wrapper).
+
+    Convenience entry point for synchronous callers (CLI, scripts).
+    Library users in an existing event loop should call
+    :func:`fetch_all_feeds_async` directly instead.
+
+    Raises ``RuntimeError`` if called from within a running event loop;
+    use :func:`fetch_all_feeds_async` in that case.
+    """
+    return asyncio.run(fetch_all_feeds_async(topic))
+
+
+async def fetch_all_feeds_async(topic: str) -> FetchResult:
+    """Fetch all feeds for a topic concurrently (async).
+
+    Looks up feed URLs from the loaded ``feeds.toml`` config (case-insensitive
+    topic match). Returns an empty :class:`FetchResult` with ``feeds_total=0``
+    for unknown topics. Individual feed failures are logged and reflected in
+    ``feeds_failed`` without aborting the batch.
+    """
     urls = FEEDS.get(topic.lower(), [])
     if not urls:
         logger.error("Unknown topic: %s", topic)
         return FetchResult(articles=[], feeds_total=0, feeds_succeeded=0, feeds_failed=0)
 
-    return asyncio.run(_fetch_all_feeds_async(urls, topic))
-
-
-async def _fetch_all_feeds_async(urls: list[str], topic: str) -> FetchResult:
-    """Fetch all feeds concurrently using asyncio."""
     async with httpx.AsyncClient() as client:
         tasks = [_fetch_feed_async(url, client) for url in urls]
         results = await asyncio.gather(*tasks)
