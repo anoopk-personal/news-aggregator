@@ -14,6 +14,7 @@ from src.rss_fetcher import (
     _parse_feed,
     _sanitize,
     fetch_all_feeds,
+    fetch_all_feeds_async,
     fetch_feed,
 )
 
@@ -654,6 +655,64 @@ def test_fetch_all_feeds_continues_when_some_feeds_fail(mock_fetch_async):
     ]
 
     result = fetch_all_feeds("testtopic")
+    assert len(result.articles) == 2
+    assert result.articles[0].title == "From A"
+    assert result.articles[1].title == "From C"
+    assert result.feeds_total == 3
+    assert result.feeds_succeeded == 2
+    assert result.feeds_failed == 1
+
+
+# --- fetch_all_feeds_async tests (callable from existing event loops) ---
+
+
+@pytest.mark.asyncio
+@patch("src.rss_fetcher._fetch_feed_async", new_callable=AsyncMock)
+@patch("src.rss_fetcher.FEEDS", {"testtopic": ["https://example.com/feed1"]})
+async def test_fetch_all_feeds_async_returns_articles_for_valid_topic(mock_fetch_async):
+    """The async public API works inside an existing event loop."""
+    article = Article(
+        title="Async Test",
+        link="https://example.com/1",
+        summary="Summary",
+        source="Source",
+    )
+    mock_fetch_async.return_value = [article]
+
+    result = await fetch_all_feeds_async("testtopic")
+    assert len(result.articles) == 1
+    assert result.articles[0].title == "Async Test"
+    assert result.feeds_succeeded == 1
+
+
+@pytest.mark.asyncio
+@patch("src.rss_fetcher.FEEDS", {"ai": ["https://example.com/feed"]})
+async def test_fetch_all_feeds_async_returns_empty_for_unknown_topic():
+    """Async API returns an empty FetchResult for unknown topics."""
+    result = await fetch_all_feeds_async("nonexistent")
+    assert result.articles == []
+    assert result.feeds_total == 0
+    assert result.feeds_succeeded == 0
+    assert result.feeds_failed == 0
+
+
+@pytest.mark.asyncio
+@patch("src.rss_fetcher._fetch_feed_async", new_callable=AsyncMock)
+@patch(
+    "src.rss_fetcher.FEEDS",
+    {"testtopic": ["https://a.com/f", "https://b.com/f", "https://c.com/f"]},
+)
+async def test_fetch_all_feeds_async_continues_when_some_feeds_fail(mock_fetch_async):
+    """Async API: articles from successful feeds are returned when others fail."""
+    article_a = Article(title="From A", link="https://a.com/1", summary="", source="A")
+    article_c = Article(title="From C", link="https://c.com/1", summary="", source="C")
+    mock_fetch_async.side_effect = [
+        [article_a],
+        [],
+        [article_c],
+    ]
+
+    result = await fetch_all_feeds_async("testtopic")
     assert len(result.articles) == 2
     assert result.articles[0].title == "From A"
     assert result.articles[1].title == "From C"
