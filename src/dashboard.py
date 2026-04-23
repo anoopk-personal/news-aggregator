@@ -152,7 +152,7 @@ def render_dashboard(
             "",
             "### Pipeline Health",
             "",
-            "| | Runs | Articles | Feeds | Tokens | Cost |",
+            "| | Runs | Articles | Feed % | Tokens | Cost |",
             "|---|:---:|:---:|:---:|:---:|:---:|",
             *rows,
             "",

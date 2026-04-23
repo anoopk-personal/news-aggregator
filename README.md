@@ -20,7 +20,7 @@ Get a daily briefing on **AI**, **Cricket**, and **Finance** -- from 40+ sources
 
 ### Pipeline Health
 
-| | Runs | Articles | Feeds | Tokens | Cost |
+| | Runs | Articles | Feed % | Tokens | Cost |
 |---|:---:|:---:|:---:|:---:|:---:|
 | **Last run** | 1 | 131 | 68% | 29k | $0.1355 |
 | **30 days** | 28 | 2,996 | 62% | 678k | $3.0694 |
