@@ -93,7 +93,7 @@ SOURCE_MAX_LENGTH: Final[int] = 100
 
 # --- LLM ---
 LLM_MODEL_DEFAULT: Final[str] = "gemini-2.5-pro"
-LLM_MAX_TOKENS: Final[int] = 8000
+LLM_MAX_TOKENS: Final[int] = 16000
 LLM_TEMPERATURE: Final[float] = 0.3
 LLM_TIMEOUT: Final[int] = 180  # seconds
 
