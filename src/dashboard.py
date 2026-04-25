@@ -5,11 +5,7 @@ from dataclasses import dataclass
 from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 
-from .config import (
-    DEFAULT_COST_PER_MILLION_TOKENS,
-    DEFAULT_METRICS_FILE,
-    MODEL_COST_PER_MILLION_TOKENS,
-)
+from .config import DEFAULT_METRICS_FILE
 from .logging_config import configure_logging
 from .metrics import RunMetrics
 
@@ -27,12 +23,8 @@ class PeriodSummary:
     label: str
     runs: int
     articles_fetched: int
-    articles_after_dedup: int
     feeds_total: int
     feeds_succeeded: int
-    prompt_tokens: int
-    completion_tokens: int
-    total_tokens: int
     total_cost: float
 
     @property
@@ -53,12 +45,8 @@ def _build_summary(label: str, runs: list[RunMetrics]) -> PeriodSummary:
         label=label,
         runs=len(runs),
         articles_fetched=sum(m.total_articles_fetched for m in runs),
-        articles_after_dedup=sum(m.total_articles_after_dedup for m in runs),
         feeds_total=sum(m.total_feeds for m in runs),
         feeds_succeeded=sum(m.successful_feeds for m in runs),
-        prompt_tokens=sum(m.total_prompt_tokens for m in runs),
-        completion_tokens=sum(m.total_completion_tokens for m in runs),
-        total_tokens=sum(m.total_tokens for m in runs),
         total_cost=sum(m.total_cost for m in runs),
     )
 
@@ -82,15 +70,8 @@ def _format_number(value: int) -> str:
     return f"{value:,}"
 
 
-def _format_tokens(total_tokens: int) -> str:
-    """Format token count in thousands."""
-    if total_tokens == 0:
-        return "0"
-    return f"{total_tokens / 1000:,.0f}k"
-
-
 def _format_cost(cost: float) -> str:
-    """Format cost as a dollar amount with actual precision (no rounding)."""
+    """Format cost as USD, rounded to 4 decimal places, trailing zeros trimmed."""
     if cost == 0:
         return "$0.00"
     integer_part, decimal_part = f"{cost:.4f}".split(".")
@@ -98,73 +79,100 @@ def _format_cost(cost: float) -> str:
     return f"${integer_part}.{decimal_part}"
 
 
-def _build_last_run_summary(metrics: list[RunMetrics]) -> PeriodSummary:
-    """Build a PeriodSummary from the single most recent run."""
-    if not metrics:
-        return PeriodSummary(
-            label="Last run",
-            runs=0,
-            articles_fetched=0,
-            articles_after_dedup=0,
-            feeds_total=0,
-            feeds_succeeded=0,
-            prompt_tokens=0,
-            completion_tokens=0,
-            total_tokens=0,
-            total_cost=0.0,
-        )
-    most_recent = max(metrics, key=lambda m: m.run_date)
-    return _build_summary("Last run", [most_recent])
+def _format_duration(seconds: float) -> str:
+    """Format seconds as human-readable duration (e.g. '2m 40s')."""
+    minutes = int(seconds) // 60
+    secs = int(seconds) % 60
+    if minutes == 0:
+        return f"{secs}s"
+    return f"{minutes}m {secs}s"
 
 
 def render_dashboard(
     metrics: list[RunMetrics],
     today: date | None = None,
 ) -> str:
-    """Render the dashboard markdown table."""
-    summary_last = _build_last_run_summary(metrics)
-    summary_30 = compute_summary(metrics, days=30, label="30 days", today=today)
-    summary_all = _build_summary("All time", metrics)
-
-    # Determine model for cost footnote from most recent run.
+    """Render the dashboard markdown with hero line, per-topic table, and periods table."""
+    # --- Hero line (most recent run) ---
     model = "unknown"
+    hero_line = "Last run: **--** | 0 articles | 0/0 feeds | $0.00 | 0s"
+    topic_rows: list[str] = []
+
     if metrics:
         most_recent = max(metrics, key=lambda m: m.run_date)
         model = most_recent.model
 
-    rows = []
-    for summary in [summary_last, summary_30, summary_all]:
-        rows.append(
-            f"| **{summary.label}** | {summary.runs} "
+        run_date = date.fromisoformat(most_recent.run_date)
+        date_str = run_date.strftime("%b %-d")
+        hero_line = (
+            f"Last run: **{date_str}**"
+            f" | {_format_number(most_recent.total_articles_fetched)} articles"
+            f" | {most_recent.successful_feeds}/{most_recent.total_feeds} feeds"
+            f" | {_format_cost(most_recent.total_cost)}"
+            f" | {_format_duration(most_recent.duration_seconds)}"
+        )
+
+        # Per-topic table rows
+        for topic in most_recent.topics:
+            topic_rows.append(
+                f"| {topic.topic.title()} "
+                f"| {topic.feeds_succeeded}/{topic.feeds_total} "
+                f"| {_format_number(topic.articles_fetched)} "
+                f"| {_format_cost(topic.cost)} |"
+            )
+
+    # --- Historical periods table ---
+    summary_7 = compute_summary(metrics, days=7, label="7 days", today=today)
+    summary_30 = compute_summary(metrics, days=30, label="30 days", today=today)
+    summary_all = _build_summary("All time", metrics)
+
+    period_rows = []
+    for summary in [summary_7, summary_30, summary_all]:
+        period_rows.append(
+            f"| **{summary.label}** "
+            f"| {summary.runs} "
             f"| {_format_number(summary.articles_fetched)} "
             f"| {summary.feed_success_rate:.0f}% "
-            f"| {_format_tokens(summary.total_tokens)} "
             f"| {_format_cost(summary.total_cost)} |"
         )
 
-    input_rate, output_rate = MODEL_COST_PER_MILLION_TOKENS.get(
-        model, DEFAULT_COST_PER_MILLION_TOKENS
-    )
-    reference = today or datetime.now(UTC).date()
+    # --- Footer ---
+    avg_cost = summary_all.total_cost / summary_all.runs if summary_all.runs else 0
+    footer = f"> Model: `{model}` | ~{_format_cost(avg_cost)}/run"
 
-    table = "\n".join(
+    # --- Assemble ---
+    sections = [
+        DASHBOARD_START,
+        "",
+        "### Pipeline Health",
+        "",
+        hero_line,
+        "",
+    ]
+
+    if topic_rows:
+        sections.extend(
+            [
+                "| Topic | Feeds | Articles | Cost |",
+                "|-------|:-----:|:--------:|:----:|",
+                *topic_rows,
+                "",
+            ]
+        )
+
+    sections.extend(
         [
-            DASHBOARD_START,
+            "| Period | Runs | Articles | Feed Health | Cost |",
+            "|--------|:----:|:--------:|:-----------:|:----:|",
+            *period_rows,
             "",
-            "### Pipeline Health",
-            "",
-            "| | Runs | Articles | Feed % | Tokens | Cost |",
-            "|---|:---:|:---:|:---:|:---:|:---:|",
-            *rows,
-            "",
-            f"> Updated {reference.isoformat()}"
-            f" | Cost: ${input_rate}/1M in + ${output_rate}/1M out"
-            f" (`{model}`)",
+            footer,
             "",
             DASHBOARD_END,
         ]
     )
-    return table
+
+    return "\n".join(sections)
 
 
 def update_readme(
