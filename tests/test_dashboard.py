@@ -7,8 +7,8 @@ import pytest
 from src.dashboard import (
     DASHBOARD_END,
     DASHBOARD_START,
-    _build_last_run_summary,
     _format_cost,
+    _format_duration,
     compute_summary,
     load_metrics,
     render_dashboard,
@@ -21,7 +21,7 @@ def _sample_run(run_date: str, **overrides) -> RunMetrics:
     defaults = {
         "run_date": run_date,
         "run_timestamp": f"{run_date}T11:00:00+00:00",
-        "duration_seconds": 45.0,
+        "duration_seconds": 120.0,
         "model": "gemini-2.5-pro",
         "skipped_summarize": False,
         "skipped_dedup": False,
@@ -29,14 +29,26 @@ def _sample_run(run_date: str, **overrides) -> RunMetrics:
             TopicMetrics(
                 topic="ai",
                 feeds_total=18,
-                feeds_succeeded=16,
-                feeds_failed=2,
-                articles_fetched=60,
-                articles_after_dedup=45,
+                feeds_succeeded=13,
+                feeds_failed=5,
+                articles_fetched=80,
+                articles_after_dedup=80,
                 prompt_tokens=10000,
                 completion_tokens=5000,
                 total_tokens=15000,
                 cost=0.0625,
+            ),
+            TopicMetrics(
+                topic="cricket",
+                feeds_total=3,
+                feeds_succeeded=2,
+                feeds_failed=1,
+                articles_fetched=35,
+                articles_after_dedup=35,
+                prompt_tokens=3000,
+                completion_tokens=2000,
+                total_tokens=5000,
+                cost=0.02375,
             ),
         ],
     }
@@ -87,7 +99,7 @@ class TestComputeSummary:
         ]
         summary = compute_summary(metrics, days=7, label="Last 7 days", today=date(2026, 3, 25))
         assert summary.runs == 2
-        assert summary.articles_fetched == 120
+        assert summary.articles_fetched == 230
 
     def test_thirty_day_window(self):
         metrics = [
@@ -104,17 +116,27 @@ class TestComputeSummary:
         assert summary.articles_fetched == 0
         assert summary.feed_success_rate == 0.0
 
-    def test_aggregates_tokens(self):
-        metrics = [_sample_run("2026-03-25"), _sample_run("2026-03-24")]
-        summary = compute_summary(metrics, days=7, label="Test", today=date(2026, 3, 25))
-        assert summary.total_tokens == 30000
-        assert summary.prompt_tokens == 20000
-        assert summary.completion_tokens == 10000
-
     def test_feed_success_rate(self):
         metrics = [_sample_run("2026-03-25")]
         summary = compute_summary(metrics, days=7, label="Test", today=date(2026, 3, 25))
-        assert summary.feed_success_rate == pytest.approx(88.9, abs=0.1)
+        # 15 succeeded / 21 total = 71.4%
+        assert summary.feed_success_rate == pytest.approx(71.4, abs=0.1)
+
+    def test_aggregates_cost(self):
+        metrics = [_sample_run("2026-03-25"), _sample_run("2026-03-24")]
+        summary = compute_summary(metrics, days=7, label="Test", today=date(2026, 3, 25))
+        assert summary.total_cost == pytest.approx(0.17250)
+
+    def test_seven_day_period(self):
+        metrics = [
+            _sample_run("2026-03-25"),
+            _sample_run("2026-03-22"),
+            _sample_run("2026-03-19"),
+            _sample_run("2026-03-15"),
+        ]
+        summary = compute_summary(metrics, days=7, label="7 days", today=date(2026, 3, 25))
+        assert summary.runs == 3
+        assert summary.label == "7 days"
 
 
 class TestFormatCost:
@@ -133,53 +155,99 @@ class TestFormatCost:
     def test_small_fraction(self):
         assert _format_cost(0.0015) == "$0.0015"
 
-    def test_aggregates_stored_cost(self):
-        metrics = [_sample_run("2026-03-25"), _sample_run("2026-03-24")]
-        summary = compute_summary(metrics, days=7, label="Test", today=date(2026, 3, 25))
-        assert summary.total_cost == pytest.approx(0.125)
 
+class TestFormatDuration:
+    def test_seconds_only(self):
+        assert _format_duration(45.0) == "45s"
 
-class TestBuildLastRunSummary:
-    def test_uses_most_recent_run(self):
-        metrics = [_sample_run("2026-03-20"), _sample_run("2026-03-25")]
-        summary = _build_last_run_summary(metrics)
-        assert summary.label == "Last run"
-        assert summary.runs == 1
-        assert summary.articles_fetched == 60
+    def test_minutes_and_seconds(self):
+        assert _format_duration(159.9) == "2m 39s"
 
-    def test_empty_metrics(self):
-        summary = _build_last_run_summary([])
-        assert summary.label == "Last run"
-        assert summary.runs == 0
-        assert summary.articles_fetched == 0
-        assert summary.total_cost == 0.0
+    def test_exact_minutes(self):
+        assert _format_duration(120.0) == "2m 0s"
+
+    def test_zero(self):
+        assert _format_duration(0.0) == "0s"
 
 
 class TestRenderDashboard:
-    def test_produces_markdown_table(self):
+    def test_produces_dashboard_structure(self):
         metrics = [_sample_run("2026-03-25"), _sample_run("2026-03-20")]
         dashboard = render_dashboard(metrics, today=date(2026, 3, 25))
         assert DASHBOARD_START in dashboard
         assert DASHBOARD_END in dashboard
         assert "Pipeline Health" in dashboard
-        assert "**Last run**" in dashboard
+        # Hero line
+        assert "Last run: **Mar 25**" in dashboard
+        assert "115 articles" in dashboard
+        assert "15/21 feeds" in dashboard
+        assert "2m 0s" in dashboard
+        # Per-topic table
+        assert "| Ai |" in dashboard
+        assert "| Cricket |" in dashboard
+        # Historical table
+        assert "**7 days**" in dashboard
         assert "**30 days**" in dashboard
         assert "**All time**" in dashboard
-        assert "Errors" not in dashboard
-        assert "Avg time" not in dashboard
+        # No tokens column
+        assert "Tokens" not in dashboard
         assert "gemini-2.5-pro" in dashboard
 
     def test_empty_metrics(self):
         dashboard = render_dashboard([], today=date(2026, 3, 25))
-        assert "**Last run**" in dashboard
+        assert "Last run: **--**" in dashboard
+        assert "**7 days**" in dashboard
         assert "**30 days**" in dashboard
         assert "**All time**" in dashboard
+        # No topic table when no data
+        assert "| Topic |" not in dashboard
 
-    def test_cost_footnote_includes_model(self):
+    def test_footer_includes_model_and_avg_cost(self):
         metrics = [_sample_run("2026-03-25", model="gpt-4o")]
         dashboard = render_dashboard(metrics, today=date(2026, 3, 25))
         assert "`gpt-4o`" in dashboard
-        assert "$2.5/1M in" in dashboard
+        assert "/run" in dashboard
+
+    def test_per_topic_rows(self):
+        run = _sample_run(
+            "2026-03-25",
+            topics=[
+                TopicMetrics(
+                    topic="ai",
+                    feeds_total=18,
+                    feeds_succeeded=13,
+                    feeds_failed=5,
+                    articles_fetched=87,
+                    cost=0.10,
+                ),
+                TopicMetrics(
+                    topic="cricket",
+                    feeds_total=3,
+                    feeds_succeeded=2,
+                    feeds_failed=1,
+                    articles_fetched=37,
+                    cost=0.07,
+                ),
+                TopicMetrics(
+                    topic="finance",
+                    feeds_total=1,
+                    feeds_succeeded=1,
+                    feeds_failed=0,
+                    articles_fetched=10,
+                    cost=0.05,
+                ),
+            ],
+        )
+        dashboard = render_dashboard([run], today=date(2026, 3, 25))
+        assert "| Ai | 13/18 | 87 | $0.10 |" in dashboard
+        assert "| Cricket | 2/3 | 37 | $0.07 |" in dashboard
+        assert "| Finance | 1/1 | 10 | $0.05 |" in dashboard
+
+    def test_avg_cost_per_run(self):
+        metrics = [_sample_run("2026-03-25"), _sample_run("2026-03-24")]
+        dashboard = render_dashboard(metrics, today=date(2026, 3, 25))
+        # Each run costs 0.08625, avg = 0.08625
+        assert "~$0.0862/run" in dashboard
 
 
 class TestUpdateReadme:
