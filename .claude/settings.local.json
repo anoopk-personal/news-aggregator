@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git *)",
+      "Bash([ -d \"$d/.claude/skills\" ])",
+      "Read(//Users/anoopkumar/.agents/**)"
+    ]
+  }
+}
