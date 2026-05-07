@@ -26,6 +26,9 @@ htmlcov/
 *.swp
 *.swo
 
+# Claude Code (local-only user settings)
+.claude/settings.local.json
+
 # UV
 .uv/
 
