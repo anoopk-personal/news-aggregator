@@ -7,6 +7,7 @@ from dataclasses import dataclass
 import httpx
 import openai
 from openai import OpenAI
+from openai.types.chat import ChatCompletion
 
 from .config import (
     DEFAULT_LINE_LIMITS,
@@ -114,6 +115,15 @@ Remember: Write {min_lines}-{max_lines} lines. Be comprehensive, not brief."""
             temperature=LLM_TEMPERATURE,
             timeout=LLM_TIMEOUT,
         )
+        # The OpenAI SDK uses lenient Pydantic construction, so a non-OpenAI
+        # response body (e.g. wrong base URL or unrecognised model on a proxy)
+        # comes back as a bare value instead of raising. Surface a clear error
+        # rather than crashing later with AttributeError on `.choices`.
+        if not isinstance(response, ChatCompletion) or not response.choices:
+            logger.error("LLM returned malformed response (type=%s)", type(response).__name__)
+            raise SummarizationError(
+                "LLM response is not OpenAI-compatible — check LLM_BASE_URL and LLM_MODEL"
+            )
         content = response.choices[0].message.content or ""
         line_count = len(content.strip().split("\n"))
         logger.info("Generated %d lines for %s topic", line_count, topic)
