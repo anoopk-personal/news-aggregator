@@ -4,10 +4,32 @@ import json
 from unittest.mock import MagicMock, patch
 
 import pytest
+from openai.types.chat import ChatCompletion
+from openai.types.chat.chat_completion import Choice
+from openai.types.chat.chat_completion_message import ChatCompletionMessage
+from openai.types.completion_usage import CompletionUsage
 
 from src.exceptions import SummarizationError
 from src.rss_fetcher import Article
 from src.summarizer import summarize_articles
+
+
+def _build_chat_completion(content: str = "Test summary") -> ChatCompletion:
+    """Build a real ChatCompletion so production isinstance() checks pass."""
+    return ChatCompletion(
+        id="test-id",
+        choices=[
+            Choice(
+                finish_reason="stop",
+                index=0,
+                message=ChatCompletionMessage(role="assistant", content=content),
+            )
+        ],
+        created=1,
+        model="test-model",
+        object="chat.completion",
+        usage=CompletionUsage(prompt_tokens=500, completion_tokens=200, total_tokens=700),
+    )
 
 
 @pytest.fixture
@@ -16,13 +38,7 @@ def mock_openai_client():
     with patch("src.summarizer.OpenAI") as mock_openai:
         mock_client = MagicMock()
         mock_openai.return_value = mock_client
-        mock_completion = MagicMock()
-        mock_completion.choices[0].message.content = "Test summary"
-        mock_usage = MagicMock()
-        mock_usage.prompt_tokens = 500
-        mock_usage.completion_tokens = 200
-        mock_completion.usage = mock_usage
-        mock_client.chat.completions.create.return_value = mock_completion
+        mock_client.chat.completions.create.return_value = _build_chat_completion()
         yield mock_openai
 
 
@@ -67,6 +83,23 @@ def test_summarize_articles_no_articles(monkeypatch):
     result = summarize_articles([], "ai")
     assert result.content == "No articles found for ai."
     assert result.total_tokens == 0
+
+
+def test_summarize_raises_on_non_openai_response_shape(monkeypatch):
+    """If the LLM endpoint returns a body that the OpenAI SDK can't parse into
+    a ChatCompletion (lenient Pydantic construct returns the raw value), we
+    must raise SummarizationError with a useful message instead of crashing on
+    `.choices` later. Simulates a misconfigured LLM_BASE_URL or unknown model
+    on an OpenAI-compatible proxy like OpenRouter."""
+    monkeypatch.setenv("LLM_API_KEY", "test_key")
+    monkeypatch.setenv("LLM_BASE_URL", "https://test.com")
+    with patch("src.summarizer.OpenAI") as mock_openai:
+        mock_client = MagicMock()
+        mock_openai.return_value = mock_client
+        mock_client.chat.completions.create.return_value = "unexpected string body"
+        articles = [Article(title="Title", link="Link", summary="Summary", source="Source")]
+        with pytest.raises(SummarizationError, match="not OpenAI-compatible"):
+            summarize_articles(articles, "ai")
 
 
 def test_summarize_rejects_http_remote_base_url(monkeypatch):

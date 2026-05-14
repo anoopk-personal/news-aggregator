@@ -138,8 +138,13 @@ DEFAULT_METRICS_DIR: Final[Path] = Path(__file__).parent.parent / "metrics"
 DEFAULT_METRICS_FILE: Final[Path] = DEFAULT_METRICS_DIR / "history.jsonl"
 
 # Cost per 1M tokens (input, output) for dashboard estimation only.
+# OpenRouter model names use the `provider/model` form; keep both bare and
+# prefixed entries so direct-provider and OpenRouter routing both estimate
+# correctly.
 MODEL_COST_PER_MILLION_TOKENS: Final[dict[str, tuple[float, float]]] = {
     "gemini-2.5-pro": (1.25, 10.00),
+    "google/gemini-2.5-pro": (1.25, 10.00),
+    "google/gemini-2.5-flash": (0.30, 2.50),
     "gpt-4o": (2.50, 10.00),
     "gpt-4o-mini": (0.15, 0.60),
     "llama3": (0.0, 0.0),

@@ -37,6 +37,7 @@ jobs:
         env:
           LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
           LLM_BASE_URL: ${{ secrets.LLM_BASE_URL }}
+          LLM_MODEL: google/gemini-2.5-flash
           NEWS_TOPIC: all
         run: uv run get-news --topic "$NEWS_TOPIC"
 
