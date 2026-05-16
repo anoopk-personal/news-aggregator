@@ -46,7 +46,7 @@ def summarize_articles(articles: list[Article], topic: str) -> SummarizeResult:
 
     api_key, base_url, model = get_llm_config()
 
-    min_lines, max_lines = TOPIC_LINE_LIMITS.get(topic.lower(), DEFAULT_LINE_LIMITS)
+    min_lines, max_lines = TOPIC_LINE_LIMITS.get(topic, DEFAULT_LINE_LIMITS)
 
     client = OpenAI(api_key=api_key, base_url=base_url) if base_url else OpenAI(api_key=api_key)
 
