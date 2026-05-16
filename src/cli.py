@@ -132,8 +132,8 @@ def main(
                     tm.total_tokens = summarize_result.total_tokens
                     tm.cost = estimate_cost(tm.prompt_tokens, tm.completion_tokens, model)
                 all_summaries.append(summary)
-        except (NewsAggregatorError, SummarizationError) as e:
-            logger.error("Error fetching %s: %s", t, e)
+        except Exception as e:
+            logger.error("Error processing %s: %s", t, e)
             tm.error = str(e)
             topic_errors += 1
         finally:
