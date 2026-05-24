@@ -20,21 +20,21 @@ Get a daily briefing on **AI**, **Cricket**, and **Finance** -- from 40+ sources
 
 ### Pipeline Health
 
-Last run: **May 23** | 138 articles | 16/22 feeds | $0.0358 | 1m 6s
+Last run: **May 24** | 122 articles | 14/22 feeds | $0.0322 | 52s
 
 | Topic | Feeds | Articles | Cost |
 |-------|:-----:|:--------:|:----:|
-| Ai | 13/18 | 85 | $0.0245 |
-| Cricket | 2/3 | 43 | $0.0069 |
-| Finance | 1/1 | 10 | $0.0044 |
+| Ai | 11/18 | 70 | $0.0247 |
+| Cricket | 2/3 | 42 | $0.0048 |
+| Finance | 1/1 | 10 | $0.0027 |
 
 | Period | Runs | Articles | Feed Health | Cost |
 |--------|:----:|:--------:|:-----------:|:----:|
-| **7 days** | 7 | 948 | 69% | $0.2281 |
-| **30 days** | 30 | 3,857 | 69% | $4.6365 |
-| **All time** | 95 | 8,254 | 66% | $9.6562 |
+| **7 days** | 7 | 936 | 68% | $0.2258 |
+| **30 days** | 30 | 3,843 | 69% | $4.4712 |
+| **All time** | 96 | 8,376 | 66% | $9.6884 |
 
-> Model: `google/gemini-2.5-flash` | ~$0.1016/run
+> Model: `google/gemini-2.5-flash` | ~$0.1009/run
 
 <!-- DASHBOARD:END -->
 
