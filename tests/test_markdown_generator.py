@@ -83,6 +83,23 @@ def test_sanitize_markdown_neutralizes_vbscript():
     assert "](#" in result
 
 
+def test_sanitize_markdown_neutralizes_spaced_link_destinations():
+    """Dangerous schemes are neutralized with whitespace after the opening paren."""
+    text = "Click [here]( javascript:alert(1)) or [there](\n data:text/html,x)"
+    result = _sanitize_markdown(text)
+    assert "javascript:" not in result
+    assert "data:" not in result
+    assert result.count("](#") == 2
+
+
+def test_sanitize_markdown_removes_angle_bracket_link_destinations():
+    """nh3 strips HTML-like angle-bracket destinations before markdown is written."""
+    text = "Click [here]( <javascript:alert(1)> ) or [there](\n<data:text/html,x>)"
+    result = _sanitize_markdown(text)
+    assert "javascript:" not in result
+    assert "data:" not in result
+
+
 # --- write_markdown tests ---
 
 

@@ -59,7 +59,7 @@ def compute_summary(
 ) -> PeriodSummary:
     """Aggregate metrics for the last N days."""
     reference = today or datetime.now(UTC).date()
-    cutoff = reference - timedelta(days=days)
+    cutoff = reference - timedelta(days=max(days - 1, 0))
 
     filtered = [m for m in metrics if m.run_date >= cutoff.isoformat()]
     return _build_summary(label, filtered)

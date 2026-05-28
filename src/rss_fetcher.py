@@ -6,7 +6,7 @@ import re
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import Any, Final
-from urllib.parse import urlparse
+from urllib.parse import urljoin, urlparse
 
 import feedparser
 import httpx
@@ -55,20 +55,21 @@ class FetchResult:
 
 def _validate_redirect(current_url: str, response: httpx.Response) -> str | None:
     """Validate a redirect response. Returns the target URL or None if blocked."""
-    location: str = response.headers.get("location", "")
-    if not is_valid_url(location, ALLOWED_URL_SCHEMES):
+    location: str = response.headers.get("location", "").strip()
+    target_url = urljoin(current_url, location)
+    if not is_valid_url(target_url, ALLOWED_URL_SCHEMES, resolve_dns=True):
         logger.warning(
             "Redirect to invalid URL blocked: %s -> %s",
             current_url,
             location,
         )
         return None
-    return location
+    return target_url
 
 
 def fetch_feed(url: str) -> list[Article]:
     """Fetch and parse a single RSS feed (sync version for testing/standalone use)."""
-    if not is_valid_url(url, ALLOWED_URL_SCHEMES):
+    if not is_valid_url(url, ALLOWED_URL_SCHEMES, resolve_dns=True):
         logger.warning("Invalid URL skipped: %s", url)
         return []
 
@@ -93,7 +94,7 @@ def fetch_feed(url: str) -> list[Article]:
 
 async def _fetch_feed_async(url: str, client: httpx.AsyncClient) -> list[Article]:
     """Fetch and parse a single RSS feed asynchronously with retry."""
-    if not is_valid_url(url, ALLOWED_URL_SCHEMES):
+    if not is_valid_url(url, ALLOWED_URL_SCHEMES, resolve_dns=True):
         logger.warning("Invalid URL skipped: %s", url)
         return []
 

@@ -2,6 +2,7 @@
 
 import ipaddress
 import re
+import socket
 from urllib.parse import urlparse
 
 # Regex pattern for emoji removal (compiled once for performance)
@@ -66,17 +67,38 @@ def is_non_routable_host(hostname: str) -> bool:
         return False  # regular domain name, allow it
 
 
-def is_valid_url(url: str, allowed_schemes: frozenset[str] | set[str]) -> bool:
+def _host_resolves_to_global_addresses(hostname: str) -> bool:
+    """Return True only if every resolved address is globally routable."""
+    try:
+        address_info = socket.getaddrinfo(hostname, None, type=socket.SOCK_STREAM)
+    except socket.gaierror:
+        return False
+
+    addresses = {str(info[4][0]) for info in address_info}
+    return bool(addresses) and all(not is_non_routable_host(address) for address in addresses)
+
+
+def is_valid_url(
+    url: str,
+    allowed_schemes: frozenset[str] | set[str],
+    *,
+    resolve_dns: bool = False,
+) -> bool:
     """Validate that a URL has an allowed scheme and routable host.
 
     Two-layer SSRF defense: scheme check + non-routable host rejection.
     Caller passes the allowed schemes (typically ``frozenset({"https"})``).
+    Set ``resolve_dns=True`` immediately before outbound requests to reject
+    hostnames that currently resolve to private or otherwise non-global IPs.
     """
     try:
         parsed = urlparse(url)
         if parsed.scheme not in allowed_schemes or not parsed.netloc:
             return False
-        if is_non_routable_host(parsed.hostname or ""):
+        hostname = parsed.hostname or ""
+        if is_non_routable_host(hostname):
+            return False
+        if resolve_dns and not _host_resolves_to_global_addresses(hostname):
             return False
         return True
     except (ValueError, AttributeError):
