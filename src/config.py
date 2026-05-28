@@ -24,9 +24,9 @@ def _load_feeds_config(
 ) -> tuple[dict[str, list[str]], dict[str, tuple[int, int]]]:
     """Load feeds from TOML config. Raises NewsAggregatorError if missing or empty.
 
-    Feed URLs are validated against the full SSRF defense (scheme + non-routable
-    host check) at load time, so misconfigured private hosts in ``feeds.toml``
-    are rejected at startup rather than at fetch time.
+    Feed URLs are validated for scheme and literal non-routable hosts at load
+    time, so obvious private-host mistakes in ``feeds.toml`` are rejected at
+    startup. DNS resolution is checked again immediately before fetching.
     """
     if not config_path.exists():
         raise NewsAggregatorError(f"feeds.toml not found at {config_path}")

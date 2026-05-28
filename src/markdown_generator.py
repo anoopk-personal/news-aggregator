@@ -9,9 +9,11 @@ import nh3
 from .config import DANGEROUS_LINK_SCHEMES, OUTPUT_DATE_FORMAT, OUTPUT_FILENAME_PREFIX
 from .utils import EMOJI_PATTERN
 
-# Case-insensitive pattern to neutralize dangerous URL schemes in markdown links
+# Case-insensitive pattern to neutralize dangerous URL schemes in markdown links.
+# Handles common Markdown destination forms like `[x](javascript:...)`,
+# `[x]( <javascript:...> )`, and newlines or spaces after the opening paren.
 _DANGEROUS_LINK_RE = re.compile(
-    r"\]\((" + "|".join(re.escape(s) for s in DANGEROUS_LINK_SCHEMES) + r")",
+    r"\]\(\s*<?\s*(" + "|".join(re.escape(s) for s in DANGEROUS_LINK_SCHEMES) + r")",
     re.IGNORECASE,
 )
 

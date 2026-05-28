@@ -138,6 +138,15 @@ class TestComputeSummary:
         assert summary.runs == 3
         assert summary.label == "7 days"
 
+    def test_seven_day_period_excludes_eighth_calendar_date(self):
+        metrics = [
+            _sample_run("2026-03-25"),
+            _sample_run("2026-03-19"),
+            _sample_run("2026-03-18"),
+        ]
+        summary = compute_summary(metrics, days=7, label="7 days", today=date(2026, 3, 25))
+        assert summary.runs == 2
+
 
 class TestFormatCost:
     def test_zero_cost(self):

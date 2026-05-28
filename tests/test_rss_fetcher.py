@@ -1,5 +1,6 @@
 """Tests for RSS fetcher module."""
 
+import socket
 from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -16,6 +17,16 @@ from src.rss_fetcher import (
     fetch_all_feeds_async,
     fetch_feed,
 )
+
+
+@pytest.fixture(autouse=True)
+def _resolve_test_hosts_to_public_ip(monkeypatch):
+    """Keep fetcher unit tests offline while fetch-time DNS preflight is enabled."""
+
+    def fake_getaddrinfo(host, port, *args, **kwargs):
+        return [(socket.AF_INET, socket.SOCK_STREAM, 6, "", ("93.184.216.34", port or 0))]
+
+    monkeypatch.setattr("src.utils.socket.getaddrinfo", fake_getaddrinfo)
 
 
 def test_sanitize_removes_html_tags():
@@ -179,6 +190,19 @@ def test_fetch_feed_http_error(mock_get):
     mock_get.side_effect = httpx.HTTPError("Test error")
     articles = fetch_feed("https://example.com/feed")
     assert articles == []
+
+
+@patch("src.rss_fetcher.httpx.get")
+def test_fetch_feed_blocks_hostname_resolving_to_private_ip(mock_get, monkeypatch):
+    """DNS-controlled feed hosts resolving to private IPs must not be requested."""
+
+    def fake_getaddrinfo(host, port, *args, **kwargs):
+        return [(socket.AF_INET, socket.SOCK_STREAM, 6, "", ("10.0.0.5", port or 0))]
+
+    monkeypatch.setattr("src.utils.socket.getaddrinfo", fake_getaddrinfo)
+    articles = fetch_feed("https://feed.example.com/rss")
+    assert articles == []
+    mock_get.assert_not_called()
 
 
 # --- Retry tests for async fetching ---
@@ -767,6 +791,40 @@ def test_fetch_feed_follows_safe_redirect(mock_get):
     articles = fetch_feed("https://example.com/feed")
     assert len(articles) == 1
     assert articles[0].title == "Redirected Article"
+
+
+@patch("src.rss_fetcher.httpx.get")
+def test_fetch_feed_follows_safe_relative_redirect(mock_get):
+    """Relative Location headers should be resolved against the current URL."""
+    recent_date = datetime.now(UTC) - timedelta(hours=1)
+    date_str = recent_date.strftime("%a, %d %b %Y %H:%M:%S GMT")
+
+    redirect_response = MagicMock()
+    redirect_response.is_redirect = True
+    redirect_response.headers = {"location": "/feed.xml"}
+
+    final_response = MagicMock()
+    final_response.is_redirect = False
+    final_response.raise_for_status = MagicMock()
+    final_response.text = f"""
+    <rss version="2.0">
+    <channel>
+        <title>Relative Redirect Feed</title>
+        <item>
+            <title>Relative Redirect Article</title>
+            <link>https://example.com/article</link>
+            <description>Test</description>
+            <pubDate>{date_str}</pubDate>
+        </item>
+    </channel>
+    </rss>
+    """
+    mock_get.side_effect = [redirect_response, final_response]
+
+    articles = fetch_feed("https://example.com/news/rss")
+    assert len(articles) == 1
+    assert articles[0].title == "Relative Redirect Article"
+    assert mock_get.call_args_list[1].args[0] == "https://example.com/feed.xml"
 
 
 @pytest.mark.asyncio

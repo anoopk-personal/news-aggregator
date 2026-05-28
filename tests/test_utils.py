@@ -1,5 +1,7 @@
 """Tests for shared utility helpers."""
 
+import socket
+
 import pytest
 
 from src.utils import escape_markdown_url, is_non_routable_host, is_valid_url
@@ -93,3 +95,33 @@ def test_is_non_routable_host_allows_normal_domain():
 
 def test_is_non_routable_host_rejects_empty_hostname():
     assert is_non_routable_host("") is True
+
+
+def test_is_valid_url_rejects_hostname_resolving_to_private_ip(monkeypatch):
+    """DNS preflight blocks domains that resolve to non-global addresses."""
+
+    def fake_getaddrinfo(host, port, *args, **kwargs):
+        return [(socket.AF_INET, socket.SOCK_STREAM, 6, "", ("10.0.0.5", port or 0))]
+
+    monkeypatch.setattr("src.utils.socket.getaddrinfo", fake_getaddrinfo)
+    assert is_valid_url("https://feed.example.com/rss", HTTPS_ONLY, resolve_dns=True) is False
+
+
+def test_is_valid_url_accepts_hostname_resolving_to_public_ip(monkeypatch):
+    """DNS preflight allows domains when all resolved addresses are global."""
+
+    def fake_getaddrinfo(host, port, *args, **kwargs):
+        return [(socket.AF_INET, socket.SOCK_STREAM, 6, "", ("93.184.216.34", port or 0))]
+
+    monkeypatch.setattr("src.utils.socket.getaddrinfo", fake_getaddrinfo)
+    assert is_valid_url("https://feed.example.com/rss", HTTPS_ONLY, resolve_dns=True) is True
+
+
+def test_is_valid_url_rejects_dns_resolution_failure(monkeypatch):
+    """DNS failures are treated as invalid fetch targets."""
+
+    def fake_getaddrinfo(host, port, *args, **kwargs):
+        raise socket.gaierror("no such host")
+
+    monkeypatch.setattr("src.utils.socket.getaddrinfo", fake_getaddrinfo)
+    assert is_valid_url("https://missing.example.com/rss", HTTPS_ONLY, resolve_dns=True) is False
