@@ -30,11 +30,11 @@ Last run: **Jun 5** | 165 articles | 17/22 feeds | $0.0369 | 1m 6s
 
 | Period | Runs | Articles | Feed Health | Cost |
 |--------|:----:|:--------:|:-----------:|:----:|
-| **7 days** | 2 | 301 | 77% | $0.0728 |
-| **30 days** | 22 | 2,932 | 70% | $1.9402 |
-| **All time** | 101 | 9,046 | 66% | $9.8628 |
+| **7 days** | 6 | 849 | 75% | $0.2014 |
+| **30 days** | 26 | 3,480 | 71% | $2.0688 |
+| **All time** | 105 | 9,594 | 67% | $9.9914 |
 
-> Model: `google/gemini-2.5-flash` | ~$0.0977/run
+> Model: `google/gemini-2.5-flash` | ~$0.0952/run
 
 <!-- DASHBOARD:END -->
 
