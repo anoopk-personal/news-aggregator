@@ -1,9 +1,8 @@
 name: Daily News
 
 on:
-  schedule:
-    # 11:00 UTC daily (6 AM CDT / 5 AM CST)
-    - cron: '0 11 * * *'
+  # Project paused on 2026-06-06. Keep manual dispatch so the workflow can be
+  # restarted without recreating the automation.
   workflow_dispatch:
 
 concurrency:

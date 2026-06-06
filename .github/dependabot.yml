@@ -4,6 +4,8 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
+    # Project paused on 2026-06-06. Set above zero to resume version updates.
+    open-pull-requests-limit: 0
     commit-message:
       prefix: "chore"
       include: "scope"
@@ -11,6 +13,8 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
+    # Project paused on 2026-06-06. Set above zero to resume version updates.
+    open-pull-requests-limit: 0
     commit-message:
       prefix: "chore"
       include: "scope"
