@@ -1,5 +1,5 @@
 # CodeQL SAST Workflow
-# Runs on PRs to dev, pushes to dev, and weekly schedule.
+# Runs on PRs to dev and pushes to dev. Weekly schedule paused on 2026-06-06.
 # All actions pinned to full commit SHA.
 
 name: CodeQL
@@ -9,8 +9,6 @@ on:
     branches: [dev]
   push:
     branches: [dev]
-  schedule:
-    - cron: "0 6 * * 1" # Weekly Monday 6am UTC
 
 permissions:
   actions: read
